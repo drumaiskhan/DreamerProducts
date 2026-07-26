@@ -14,39 +14,78 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PageTransition from './components/PageTransition';
 import { api } from './lib/api';
 
+
 function FaviconUpdater() {
+
   useEffect(() => {
-    api.getSettings().then(s => {
-      if (s.favicon_url) {
-        let link = document.querySelector("link[rel~='icon']");
-        if (!link) {
-          link = document.createElement('link');
-          link.rel = 'icon';
-          document.head.appendChild(link);
+
+    api.getSettings()
+      .then(s => {
+
+        if (s.favicon_url) {
+
+          let link = document.querySelector("link[rel~='icon']");
+
+          if (!link) {
+
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+
+          }
+
+          link.href = s.favicon_url;
+
         }
-        link.href = s.favicon_url;
-      }
-    }).catch(() => {});
+
+      })
+      .catch(() => {});
+
   }, []);
+
   return null;
 }
 
+
+
 export default function App() {
+
   return (
+
     <AuthProvider>
+
       <CartProvider>
+
         <BrowserRouter>
+
           <FaviconUpdater />
+
           <PageTransition>
+
             <Routes>
-<Routes>
-  <Route path="/" element={<Home />} />
-  <Route path="/login" element={<Login />} />
-  <Route path="/signup" element={<Signup />} />
-  <Route path="/checkout" element={<Checkout />} />
-  <Route path="/contact" element={<Contact />} />
-  <Route path="/product/:id" element={<ProductDetails />} />
-  <Route path="/admin/login" element={<AdminLogin />} />
+
+              <Route path="/" element={<Home />} />
+
+              <Route path="/login" element={<Login />} />
+
+              <Route path="/signup" element={<Signup />} />
+
+              <Route path="/checkout" element={<Checkout />} />
+
+              <Route path="/contact" element={<Contact />} />
+
+              <Route 
+                path="/product/:id" 
+                element={<ProductDetails />} 
+              />
+
+
+              <Route 
+                path="/admin/login" 
+                element={<AdminLogin />} 
+              />
+
+
               <Route
                 path="/admin"
                 element={
@@ -55,10 +94,18 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+
+
             </Routes>
+
           </PageTransition>
+
         </BrowserRouter>
+
       </CartProvider>
+
     </AuthProvider>
+
   );
+
 }
