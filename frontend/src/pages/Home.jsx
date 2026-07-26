@@ -25,9 +25,11 @@ export default function Home() {
 
   useEffect(() => {
     setLoading(true); setError('');
-    api.getProducts(filter === 'all' ? null : filter)
-      .then(setProducts).catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+api.getProducts(filter === 'all' ? null : filter)
+  .then((data) => {
+    setProducts(Array.isArray(data) ? data : data.products || []);
+  })
+  .catch((e) => setError(e.message))
   }, [filter]);
 
   function handleCategory(cat) {
