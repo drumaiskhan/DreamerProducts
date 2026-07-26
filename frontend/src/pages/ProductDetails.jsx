@@ -7,11 +7,11 @@ export default function ProductDetails() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
 
-  useEffect(() => {
-    api.get(`/products/${id}`)
-      .then(res => setProduct(res.data))
-      .catch(err => console.log(err));
-  }, [id]);
+useEffect(() => {
+  api.getProduct(id)
+    .then(data => setProduct(data))
+    .catch(err => console.log(err));
+}, [id]);
 
 
   if (!product) {
