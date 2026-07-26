@@ -1,3 +1,4 @@
+import ProductDetails from './pages/ProductDetails';
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
@@ -38,12 +39,14 @@ export default function App() {
           <FaviconUpdater />
           <PageTransition>
             <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
+<Routes>
+  <Route path="/" element={<Home />} />
+  <Route path="/login" element={<Login />} />
+  <Route path="/signup" element={<Signup />} />
+  <Route path="/checkout" element={<Checkout />} />
+  <Route path="/contact" element={<Contact />} />
+  <Route path="/product/:id" element={<ProductDetails />} />
+  <Route path="/admin/login" element={<AdminLogin />} />
               <Route
                 path="/admin"
                 element={
