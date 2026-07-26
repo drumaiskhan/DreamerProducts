@@ -23,14 +23,28 @@ export default function Home() {
     api.getSettings().then(setSettings).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    setLoading(true); setError('');
-api.getProducts(filter === 'all' ? null : filter)
-  .then((data) => {
-    setProducts(Array.isArray(data) ? data : data.products || []);
-  })
-  .catch((e) => setError(e.message))
-  }, [filter]);
+useEffect(() => {
+  setLoading(true);
+  setError('');
+
+  api.getProducts(filter === 'all' ? null : filter)
+    .then((data) => {
+      console.log("PRODUCT DATA FROM API:", data);
+
+      const list = Array.isArray(data)
+        ? data
+        : data.products || [];
+
+      setProducts(list);
+      setLoading(false);
+    })
+    .catch((e) => {
+      console.error("PRODUCT ERROR:", e);
+      setError(e.message);
+      setLoading(false);
+    });
+
+}, [filter]);
 
   function handleCategory(cat) {
     setFilter(cat);
