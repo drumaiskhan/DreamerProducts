@@ -130,7 +130,7 @@ export default function CartDrawer({ open, onClose }) {
     right: 0;
     bottom: 0;
 
-    width: min(420px, 100vw);
+    width: min(420px, 92vw);
 
     background: #fff;
     z-index: 60;
@@ -167,16 +167,16 @@ export default function CartDrawer({ open, onClose }) {
     align-items: center;
     justify-content: space-between;
 
-    padding: 24px 24px 20px;
+    padding: 10px 14px 8px;
     border-bottom: 1px solid var(--border);
   }
 
 
   .cd-title {
-    font-size: 22px;
+    font-size: 16px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
   }
 
 
@@ -191,22 +191,21 @@ export default function CartDrawer({ open, onClose }) {
 
 
   .cd-list {
-    flex: 1;
     overflow-y: auto;
-    padding: 16px 24px;
+    padding: 8px 12px;
 
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 8px;
   }
 
 
   .cd-item {
     display: flex;
-    gap: 14px;
+    gap: 8px;
 
-    padding: 14px;
-    border-radius: 14px;
+    padding: 8px;
+    border-radius: 10px;
 
     background: var(--cream);
     border: 1px solid var(--border);
@@ -216,10 +215,10 @@ export default function CartDrawer({ open, onClose }) {
 
 
   .cd-thumb {
-    width: 64px;
-    height: 64px;
+    width: 56px;
+    height: 56px;
 
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
 
     flex-shrink: 0;
@@ -247,7 +246,8 @@ export default function CartDrawer({ open, onClose }) {
 
   .cd-price {
     font-weight: 700;
-    margin: 0 0 10px;
+    font-size: 13px;
+    margin: 0 0 8px;
   }
 
 
@@ -267,7 +267,7 @@ export default function CartDrawer({ open, onClose }) {
   .cd-qty-row button {
     border: none;
     background: none;
-    padding: 6px 12px;
+    padding: 5px 10px;
     cursor: pointer;
   }
 
@@ -285,7 +285,7 @@ export default function CartDrawer({ open, onClose }) {
 
 
   .cd-footer {
-    padding: 20px 24px 28px;
+    padding: 10px 12px 14px;
     border-top: 1px solid var(--border);
   }
 
@@ -294,13 +294,13 @@ export default function CartDrawer({ open, onClose }) {
     display: flex;
     justify-content: space-between;
 
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
 
   .cd-cta {
     width: 100%;
-    margin-top: 15px;
+    margin-top: 10px;
   }
 
 
@@ -309,7 +309,7 @@ export default function CartDrawer({ open, onClose }) {
     background: none;
     border: none;
 
-    padding: 10px;
+    padding: 8px;
     cursor: pointer;
   }
 `}</style>
