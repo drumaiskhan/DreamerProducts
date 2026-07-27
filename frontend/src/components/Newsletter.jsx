@@ -52,7 +52,7 @@ export default function Newsletter() {
 
       <style>{`
         .nl-section {
-          padding: 80px 0;
+          padding: 56px 0;
           background: var(--cream);
           border-top: 1px solid var(--border);
           border-bottom: 1px solid var(--border);
@@ -124,7 +124,7 @@ export default function Newsletter() {
           .nl-form { flex-direction: column; }
         }
         @media (max-width: 480px) {
-          .nl-section { padding: 48px 0; }
+          .nl-section { padding: 36px 0; }
           .nl-title { font-size: 24px; }
           .nl-btn { width: 100%; }
         }
