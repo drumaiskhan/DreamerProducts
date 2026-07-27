@@ -83,6 +83,11 @@ export const api = {
       body: JSON.stringify({ status })
     }).then(handle),
 
+  deleteOrder: (id) =>
+    fetch(`${API_BASE}/api/admin/orders/${id}`, {
+      method: 'DELETE', headers: adminHeaders()
+    }).then(handle),
+
   // ── Reviews (public) ──
   getReviews: () =>
     fetch(`${API_BASE}/api/reviews`).then(handle),
