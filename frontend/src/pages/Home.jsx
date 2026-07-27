@@ -156,7 +156,7 @@ useEffect(() => {
       />
 
       <style>{`
-        .shop { padding: 80px 0 110px; }
+        .shop { padding: 80px 0 60px; }
         .shop-header {
           display: flex; align-items: flex-start; justify-content: space-between;
           margin-bottom: 40px; flex-wrap: wrap; gap: 14px;
@@ -186,7 +186,7 @@ useEffect(() => {
         }
         .state-box {
           display: flex; flex-direction: column; align-items: center;
-          justify-content: center; padding: 80px 0; text-align: center;
+          justify-content: center; padding: 32px 0 8px; text-align: center;
           color: var(--ink-soft);
         }
         .state-msg { font-size: 15px; margin: 0; }
@@ -236,7 +236,7 @@ useEffect(() => {
 
         @media (max-width: 768px) {
           .footer-grid { grid-template-columns: 1fr; gap: 32px; }
-          .shop { padding: 48px 0 64px; }
+          .shop { padding: 48px 0 32px; }
           .shop-title { font-size: 26px; }
           .footer-bottom { flex-direction: column; text-align: center; gap: 4px; }
           .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
