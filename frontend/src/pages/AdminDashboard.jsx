@@ -342,6 +342,14 @@ function OrdersTab() {
     } catch (err) { alert(err.message); }
   }
 
+  async function handleDelete(id) {
+    if (!window.confirm('Delete this order permanently? This cannot be undone.')) return;
+    try {
+      await api.deleteOrder(id);
+      setOrders(prev => prev.filter(o => o.id !== id));
+    } catch (err) { alert(err.message); }
+  }
+
   const filtered = orders
     .filter(o => filter === 'all' || o.status === filter)
     .filter(o => !search || o.customer_name.toLowerCase().includes(search.toLowerCase()) || o.email.toLowerCase().includes(search.toLowerCase()) || String(o.id).includes(search));
@@ -395,10 +403,29 @@ function OrdersTab() {
                       <td style={{ color: 'var(--ink-soft)', fontSize: 13, whiteSpace: 'nowrap' }}>
                         {new Date(o.created_at).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
-                      <td>
+                      <td style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <select className={`status-select status-${o.status}`} value={o.status} onChange={e => handleStatus(o.id, e.target.value)}>
                           {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
+                        {o.status === 'Cancelled' && (
+                          <button
+                            onClick={() => handleDelete(o.id)}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '12px',
+                              background: '#fee2e2',
+                              color: '#b91c1c',
+                              border: '1px solid #fca5a5',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="Delete cancelled order"
+                          >
+                            🗑 Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -647,6 +674,7 @@ function SettingsTab() {
     brand_stat_2_num: '100%', brand_stat_2_label: 'Natural Base',
     brand_stat_3_num: '0',    brand_stat_3_label: 'Harmful Chemicals',
     delivery_note: '',
+    announcement_banner: 'Free delivery on orders over Rs 3,000 · Dermatologist-reviewed formulas',
     whatsapp_number: '',
     contact_email: '',
   };
@@ -919,6 +947,15 @@ function SettingsTab() {
               onChange={e => set('delivery_note', e.target.value)}
               placeholder="e.g. Delivery within 3–5 business days"
             />
+          </div>
+          <div className="sfield settings-grid-full">
+            <label>Announcement banner <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(shown in navbar)</span></label>
+            <input
+              value={values.announcement_banner}
+              onChange={e => set('announcement_banner', e.target.value)}
+              placeholder="e.g. Free delivery on orders over Rs 3,000 · Dermatologist-reviewed formulas"
+            />
+            <p className="shint">This text appears in the top navigation strip on all pages.</p>
           </div>
         </div>
       </div>
