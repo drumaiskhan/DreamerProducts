@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 
 const FILTERS = [
   { key: 'all',      label: 'All' },
@@ -13,9 +14,20 @@ const FILTERS = [
 export default function Navbar({ active, onFilter, onCartOpen }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bannerText, setBannerText] = useState('Free delivery on orders over Rs 3,000 · Dermatologist-reviewed formulas');
   const { count } = useCart();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.getSettings()
+      .then(s => {
+        if (s.announcement_banner) {
+          setBannerText(s.announcement_banner);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 24);
@@ -29,7 +41,7 @@ export default function Navbar({ active, onFilter, onCartOpen }) {
     <header className={`nav ${scrolled ? 'nav-scrolled' : ''}`}>
       {/* Top announcement strip */}
       <div className="nav-strip">
-        <span>Free delivery on orders over Rs 3,000 · Dermatologist-reviewed formulas</span>
+        <span>{bannerText}</span>
       </div>
 
       <div className="container nav-inner">
