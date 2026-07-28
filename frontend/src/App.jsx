@@ -20,14 +20,26 @@ import { api } from './lib/api';
 
 // ── Google Fonts loader ─────────────────────────────────
 const FONT_OPTIONS = [
+  // Heading / serif / display
   'Playfair Display',
   'Cormorant Garamond',
   'Lora',
   'DM Serif Display',
+  'Fraunces',
+  'Bodoni Moda',
+  'Cormorant Upright',
+  'Marcellus',
+  // Body / sans-serif
   'Inter',
   'DM Sans',
   'Poppins',
   'Montserrat',
+  'Manrope',
+  'Sora',
+  'Outfit',
+  'Work Sans',
+  'Karla',
+  'Nunito Sans',
 ];
 
 function loadGoogleFonts(fonts) {
@@ -67,6 +79,11 @@ function ThemeApplier() {
           theme_accent:      ['--accent', '--gold', '--soft-gold'],
           theme_accent_dark: ['--accent-dark'],
           theme_border:      ['--border'],
+          theme_muted:       ['--ink-muted'],
+          theme_success:     ['--success'],
+          theme_warning:     ['--warning'],
+          theme_error:       ['--error'],
+          theme_accent_pale: ['--accent-pale'],
         };
         for (const [key, vars] of Object.entries(colorMap)) {
           if (s[key]) vars.forEach(v => root.style.setProperty(v, s[key]));
@@ -116,6 +133,14 @@ function ThemeApplier() {
         root.style.setProperty('--shadow',    sh.base);
         root.style.setProperty('--shadow-sm', sh.sm);
         root.style.setProperty('--shadow-lg', sh.lg);
+
+        // Density / spacing
+        const densityMap = {
+          compact:     '0.75rem',
+          comfortable: '1rem',
+          spacious:    '1.375rem',
+        };
+        root.style.setProperty('--space-unit', densityMap[s.theme_density] || densityMap.comfortable);
 
         // Fonts
         const headingFont = s.theme_heading_font || 'Playfair Display';

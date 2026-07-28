@@ -1193,6 +1193,11 @@ function SettingsTab() {
     theme_accent:           '#D9B99B',
     theme_accent_dark:      '#C4A080',
     theme_border:           '#ECECEC',
+    theme_muted:            '#9B9B9B',
+    theme_success:          '#16a34a',
+    theme_warning:          '#d97706',
+    theme_error:            '#dc2626',
+    theme_accent_pale:      '#FDF6EE',
     theme_heading_font:     'Playfair Display',
     theme_body_font:        'Inter',
     theme_motion_style:     'normal',
@@ -1201,6 +1206,7 @@ function SettingsTab() {
     theme_reduced_motion:   'false',
     theme_radius:           'soft',
     theme_shadow:           'soft',
+    theme_density:          'comfortable',
   };
 
   const THEME_COLOR_DEFAULTS = {
@@ -1211,11 +1217,48 @@ function SettingsTab() {
     theme_accent:      '#D9B99B',
     theme_accent_dark: '#C4A080',
     theme_border:      '#ECECEC',
+    theme_muted:       '#9B9B9B',
+    theme_success:     '#16a34a',
+    theme_warning:     '#d97706',
+    theme_error:       '#dc2626',
+    theme_accent_pale: '#FDF6EE',
   };
 
-  const FONT_OPTIONS = [
+  const HEADING_FONTS = [
     'Playfair Display', 'Cormorant Garamond', 'Lora', 'DM Serif Display',
+    'Fraunces', 'Bodoni Moda', 'Cormorant Upright', 'Marcellus',
+  ];
+
+  const BODY_FONTS = [
     'Inter', 'DM Sans', 'Poppins', 'Montserrat',
+    'Manrope', 'Sora', 'Outfit', 'Work Sans', 'Karla', 'Nunito Sans',
+  ];
+
+  const COLOR_PRESETS = [
+    {
+      label: 'Sage & Forest',
+      colors: { theme_bg: '#FAF8F5', theme_card: '#FFFFFF', theme_primary: '#1C1C1C', theme_secondary: '#6B6B6B', theme_accent: '#D9B99B', theme_accent_dark: '#C4A080', theme_border: '#ECECEC', theme_muted: '#9B9B9B', theme_success: '#16a34a', theme_warning: '#d97706', theme_error: '#dc2626', theme_accent_pale: '#FDF6EE' },
+    },
+    {
+      label: 'Rose & Blush',
+      colors: { theme_bg: '#FFF5F7', theme_card: '#FFFFFF', theme_primary: '#2D1B1E', theme_secondary: '#7A5C63', theme_accent: '#E8A0B4', theme_accent_dark: '#D47D97', theme_border: '#F0D0D8', theme_muted: '#B08090', theme_success: '#16a34a', theme_warning: '#d97706', theme_error: '#dc2626', theme_accent_pale: '#FFE8EF' },
+    },
+    {
+      label: 'Midnight & Gold',
+      colors: { theme_bg: '#0F0F17', theme_card: '#1A1A2E', theme_primary: '#F5F0E8', theme_secondary: '#A09080', theme_accent: '#D4AF37', theme_accent_dark: '#B8962A', theme_border: '#2A2A3E', theme_muted: '#706050', theme_success: '#22c55e', theme_warning: '#f59e0b', theme_error: '#ef4444', theme_accent_pale: '#2A2010' },
+    },
+    {
+      label: 'Terracotta & Cream',
+      colors: { theme_bg: '#FBF5EE', theme_card: '#FFFCF8', theme_primary: '#2C1A0E', theme_secondary: '#7A5C45', theme_accent: '#C4714A', theme_accent_dark: '#A85A35', theme_border: '#E8D5C0', theme_muted: '#A08070', theme_success: '#16a34a', theme_warning: '#d97706', theme_error: '#dc2626', theme_accent_pale: '#F5E0D0' },
+    },
+    {
+      label: 'Monochrome',
+      colors: { theme_bg: '#F8F8F8', theme_card: '#FFFFFF', theme_primary: '#111111', theme_secondary: '#666666', theme_accent: '#444444', theme_accent_dark: '#222222', theme_border: '#E0E0E0', theme_muted: '#999999', theme_success: '#16a34a', theme_warning: '#d97706', theme_error: '#dc2626', theme_accent_pale: '#F0F0F0' },
+    },
+    {
+      label: 'Ocean & Sand',
+      colors: { theme_bg: '#F5F8FA', theme_card: '#FFFFFF', theme_primary: '#1A3040', theme_secondary: '#5A7A8A', theme_accent: '#4A9BB0', theme_accent_dark: '#357A8E', theme_border: '#D0E4EC', theme_muted: '#8AABB8', theme_success: '#16a34a', theme_warning: '#d97706', theme_error: '#dc2626', theme_accent_pale: '#E0F0F5' },
+    },
   ];
 
   const [values, setValues] = useState(DEFAULTS);
@@ -1268,7 +1311,13 @@ function SettingsTab() {
       theme_reduced_motion: 'false',
       theme_radius: 'soft',
       theme_shadow: 'soft',
+      theme_density: 'comfortable',
     }));
+    setSaved(false);
+  }
+
+  function applyPreset(preset) {
+    setValues(v => ({ ...v, ...preset.colors }));
     setSaved(false);
   }
 
@@ -1584,6 +1633,28 @@ function SettingsTab() {
           </button>
         </div>
 
+        {/* Colour presets */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 10px' }}>Colour Presets</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {COLOR_PRESETS.map(preset => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => applyPreset(preset)}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 12px', border: '1.5px solid var(--border)', borderRadius: 20, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', color: 'var(--ink)', transition: 'border-color .15s, background .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--ink)'; e.currentTarget.style.background = 'var(--cream)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = '#fff'; }}
+            >
+              <span style={{ display: 'flex', gap: 3 }}>
+                {[preset.colors.theme_bg, preset.colors.theme_accent, preset.colors.theme_primary].map((c, i) => (
+                  <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: c, border: '1px solid rgba(0,0,0,.1)', display: 'inline-block' }} />
+                ))}
+              </span>
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
         {/* Colours */}
         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Colours</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14, marginBottom: 24 }}>
@@ -1592,9 +1663,14 @@ function SettingsTab() {
             { key: 'theme_card',        label: 'Card' },
             { key: 'theme_primary',     label: 'Primary text' },
             { key: 'theme_secondary',   label: 'Secondary text' },
+            { key: 'theme_muted',       label: 'Muted text' },
             { key: 'theme_accent',      label: 'Accent' },
             { key: 'theme_accent_dark', label: 'Accent dark' },
+            { key: 'theme_accent_pale', label: 'Accent pale' },
             { key: 'theme_border',      label: 'Border' },
+            { key: 'theme_success',     label: 'Success' },
+            { key: 'theme_warning',     label: 'Warning' },
+            { key: 'theme_error',       label: 'Error / danger' },
           ].map(({ key, label }) => (
             <div key={key} className="sfield" style={{ gap: 8 }}>
               <label style={{ marginBottom: 4 }}>{label}</label>
@@ -1647,7 +1723,7 @@ function SettingsTab() {
             <label>Heading font</label>
             <select value={values.theme_heading_font} onChange={e => set('theme_heading_font', e.target.value)}
               style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: `'${values.theme_heading_font}', serif`, background: '#fff', cursor: 'pointer', outline: 'none' }}>
-              {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', serif` }}>{f}</option>)}
+              {HEADING_FONTS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', serif` }}>{f}</option>)}
             </select>
             <p className="shint" style={{ fontFamily: `'${values.theme_heading_font}', serif`, fontSize: 15, color: 'var(--ink)', margin: '6px 0 0' }}>
               The quick brown fox — {values.theme_heading_font}
@@ -1657,7 +1733,7 @@ function SettingsTab() {
             <label>Body font</label>
             <select value={values.theme_body_font} onChange={e => set('theme_body_font', e.target.value)}
               style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: `'${values.theme_body_font}', sans-serif`, background: '#fff', cursor: 'pointer', outline: 'none' }}>
-              {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>)}
+              {BODY_FONTS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>)}
             </select>
             <p className="shint" style={{ fontFamily: `'${values.theme_body_font}', sans-serif`, fontSize: 14, color: 'var(--ink-soft)', margin: '6px 0 0' }}>
               Body text sample — {values.theme_body_font}
@@ -1699,8 +1775,8 @@ function SettingsTab() {
           ))}
         </div>
 
-        {/* Radius & Shadow */}
-        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Shape & Depth</p>
+        {/* Radius, Shadow & Density */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Shape, Depth & Spacing</p>
         <div className="settings-grid">
           <div className="sfield">
             <label>Corner roundness</label>
@@ -1718,6 +1794,15 @@ function SettingsTab() {
               <option value="flat">Flat — minimal shadows</option>
               <option value="soft">Soft — gentle depth (default)</option>
               <option value="elevated">Elevated — prominent shadows</option>
+            </select>
+          </div>
+          <div className="sfield">
+            <label>Layout density</label>
+            <select value={values.theme_density || 'comfortable'} onChange={e => set('theme_density', e.target.value)}
+              style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: 'inherit', background: '#fff', cursor: 'pointer', outline: 'none' }}>
+              <option value="compact">Compact — tighter spacing</option>
+              <option value="comfortable">Comfortable — balanced (default)</option>
+              <option value="spacious">Spacious — more breathing room</option>
             </select>
           </div>
         </div>
