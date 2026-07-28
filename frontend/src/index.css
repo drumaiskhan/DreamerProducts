@@ -1,26 +1,34 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap');
+/* Fonts loaded in index.html */
 
 :root {
-  /* Clinical-Luxe Palette */
+  /* ── New Premium Palette ── */
+  --bg:          #FAF8F5;
+  --card:        #FFFFFF;
+  --primary:     #1C1C1C;
+  --secondary:   #6B6B6B;
+  --accent:      #D9B99B;
+  --accent-dark: #C4A080;
+  --border:      #ECECEC;
+  --border-dark: #D8D8D8;
+
+  /* ── Keep forest/sage for brand identity ── */
   --forest:      #1B3A2D;
   --forest-soft: #2A5040;
   --sage:        #7A9E8E;
   --sage-light:  #B8D0C5;
-  --sage-pale:   #EAF2EF;
-  --cream:       #F8F4EF;
-  --warm-white:  #FDFCFA;
-  --gold:        #C9A96E;
-  --gold-pale:   #F5EDD9;
+  --sage-pale:   #F0F5F3;
+  --cream:       #FAF8F5;
+  --warm-white:  #FAF8F5;
+  --gold:        #D9B99B;
+  --gold-pale:   #F8F0E8;
   --ink:         #1C1C1C;
-  --ink-soft:    #6B7280;
+  --ink-soft:    #6B6B6B;
   --ink-muted:   #9CA3AF;
-  --border:      #E5EAE8;
-  --border-dark: #C8D5CF;
   --radius:      16px;
   --radius-sm:   10px;
-  --shadow:      0 16px 48px rgba(27, 58, 45, 0.10);
-  --shadow-sm:   0 4px 16px rgba(27, 58, 45, 0.07);
-  --shadow-lg:   0 24px 72px rgba(27, 58, 45, 0.14);
+  --shadow:      0 8px 32px rgba(0,0,0,0.08);
+  --shadow-sm:   0 2px 12px rgba(0,0,0,0.05);
+  --shadow-lg:   0 24px 64px rgba(0,0,0,0.12);
 
   /* ── Legacy aliases ── */
   --twilight:      var(--forest);
@@ -30,9 +38,9 @@
   --soft-gold:     var(--gold);
 
   /* ── Motion tokens ── */
-  --ease-out:   cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in:    cubic-bezier(0.64, 0, 0.78, 0);
-  --ease-spring:cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in:     cubic-bezier(0.64, 0, 0.78, 0);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --t-fast:  0.15s;
   --t-base:  0.22s;
   --t-slow:  0.38s;
@@ -40,21 +48,25 @@
 
 /* ── Reset ───────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; text-rendering: optimizeLegibility; }
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
 html, body, #root { margin: 0; padding: 0; min-height: 100%; }
-
 body {
-  background: var(--warm-white);
+  background: var(--bg);
   color: var(--ink);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-size: 15px;
   line-height: 1.6;
+  overflow-x: hidden;
 }
 
 h1, h2, h3, h4, .display {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Playfair Display', serif;
   font-weight: 500;
   letter-spacing: -0.01em;
   margin: 0;
@@ -71,7 +83,7 @@ img { max-width: 100%; display: block; }
 
 /* ── Selection ───────────────────────────────────────── */
 ::selection {
-  background: rgba(122, 158, 142, 0.28);
+  background: rgba(217, 185, 155, 0.3);
   color: var(--forest);
 }
 
@@ -114,6 +126,9 @@ img { max-width: 100%; display: block; }
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.5; }
 }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 /* Page transition wrapper */
 .page-enter {
@@ -132,12 +147,12 @@ img { max-width: 100%; display: block; }
 
 /* ── Eyebrow ─────────────────────────────────────────── */
 .eyebrow {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--sage);
+  color: var(--accent-dark);
   margin: 0 0 14px;
 }
 
@@ -150,9 +165,10 @@ img { max-width: 100%; display: block; }
   padding: 13px 28px;
   border-radius: 4px;
   border: none;
+  font-family: 'Inter', sans-serif;
   font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
   position: relative;
@@ -181,16 +197,16 @@ img { max-width: 100%; display: block; }
 .btn:active::after { background: rgba(255,255,255,0.14); }
 
 .btn-primary {
-  background: var(--forest);
+  background: var(--ink);
   color: #fff;
-  box-shadow: 0 2px 12px rgba(27, 58, 45, 0.18);
+  box-shadow: 0 2px 8px rgba(28,28,28,0.15);
 }
 .btn-primary:hover {
-  background: var(--forest-soft);
-  box-shadow: 0 6px 24px rgba(27, 58, 45, 0.28);
+  background: #333;
+  box-shadow: 0 6px 20px rgba(28,28,28,0.22);
   transform: translateY(-2px);
 }
-.btn-primary:active { transform: translateY(0) scale(0.975); box-shadow: 0 2px 8px rgba(27,58,45,0.15); }
+.btn-primary:active { transform: translateY(0) scale(0.975); box-shadow: 0 2px 6px rgba(28,28,28,0.12); }
 .btn-primary:disabled {
   opacity: 0.48;
   cursor: not-allowed;
@@ -200,18 +216,18 @@ img { max-width: 100%; display: block; }
 
 .btn-outline {
   background: transparent;
-  color: var(--forest);
-  border: 1.5px solid var(--forest);
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
 }
 .btn-outline:hover {
-  background: var(--forest);
+  background: var(--ink);
   color: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(27, 58, 45, 0.18);
+  box-shadow: 0 4px 16px rgba(28,28,28,0.18);
 }
 .btn-outline:active { transform: translateY(0) scale(0.975); }
-.btn-outline::after { background: rgba(27,58,45,0); }
-.btn-outline:active::after { background: rgba(27,58,45,0.06); }
+.btn-outline::after { background: rgba(28,28,28,0); }
+.btn-outline:active::after { background: rgba(28,28,28,0.06); }
 
 .btn-ghost {
   background: transparent;
@@ -222,8 +238,19 @@ img { max-width: 100%; display: block; }
   letter-spacing: 0;
   text-transform: none;
 }
-.btn-ghost:hover { color: var(--ink); background: var(--sage-pale); border-radius: 6px; }
+.btn-ghost:hover { color: var(--ink); background: var(--border); border-radius: 6px; }
 .btn-ghost:active { transform: scale(0.97); }
+
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(217,185,155,0.3);
+}
+.btn-accent:hover {
+  background: var(--accent-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(217,185,155,0.4);
+}
 
 .btn-danger {
   background: transparent;
@@ -247,7 +274,7 @@ img { max-width: 100%; display: block; }
 /* ── Focus ───────────────────────────────────────────── */
 :focus { outline: none; }
 :focus-visible {
-  outline: 2px solid var(--sage);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
   border-radius: 4px;
   transition: outline-offset var(--t-fast) ease;
@@ -256,6 +283,7 @@ img { max-width: 100%; display: block; }
 /* ── Forms ───────────────────────────────────────────── */
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .field label {
+  font-family: 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -263,14 +291,14 @@ img { max-width: 100%; display: block; }
   color: var(--ink-soft);
   transition: color var(--t-base) ease;
 }
-.field:focus-within label { color: var(--forest); }
+.field:focus-within label { color: var(--ink); }
 
 .field input, .field select, .field textarea {
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 11px 14px;
   font-size: 14px;
-  font-family: inherit;
+  font-family: 'Inter', sans-serif;
   background: #fff;
   color: var(--ink);
   transition:
@@ -282,8 +310,8 @@ img { max-width: 100%; display: block; }
   border-color: var(--border-dark);
 }
 .field input:focus, .field select:focus, .field textarea:focus {
-  border-color: var(--sage);
-  box-shadow: 0 0 0 3px rgba(122, 158, 142, 0.18);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(28,28,28,0.08);
   outline: none;
   background: #fff;
 }
@@ -297,7 +325,7 @@ img { max-width: 100%; display: block; }
   border-radius: 999px;
   transition: background var(--t-base) ease;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--sage); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-soft); }
 
 /* ── Accessibility ─────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {

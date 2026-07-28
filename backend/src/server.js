@@ -137,15 +137,40 @@ app.get('/api/products', async (req, res) => {
     const { category } = req.query;
     const valid = ['skin', 'hair', 'perfumes'];
     const result = valid.includes(category)
-      ? await pool.query('SELECT * FROM products WHERE category=$1 ORDER BY created_at DESC', [category])
-      : await pool.query('SELECT * FROM products ORDER BY created_at DESC');
+      ? await pool.query(`
+          SELECT p.*,
+            COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0) AS avg_rating,
+            COUNT(r.id)::int AS review_count
+          FROM products p
+          LEFT JOIN reviews r ON r.product_id = p.id AND r.approved = true
+          WHERE p.category = $1
+          GROUP BY p.id
+          ORDER BY p.created_at DESC
+        `, [category])
+      : await pool.query(`
+          SELECT p.*,
+            COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0) AS avg_rating,
+            COUNT(r.id)::int AS review_count
+          FROM products p
+          LEFT JOIN reviews r ON r.product_id = p.id AND r.approved = true
+          GROUP BY p.id
+          ORDER BY p.created_at DESC
+        `);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/products/:id', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM products WHERE id=$1', [req.params.id]);
+    const { rows } = await pool.query(`
+      SELECT p.*,
+        COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0) AS avg_rating,
+        COUNT(r.id)::int AS review_count
+      FROM products p
+      LEFT JOIN reviews r ON r.product_id = p.id AND r.approved = true
+      WHERE p.id = $1
+      GROUP BY p.id
+    `, [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -219,122 +244,230 @@ app.post('/api/orders', optionalUser, async (req, res) => {
       [req.user?.id||null, customer_name, email, phone, address, city, notes||'', JSON.stringify(items), parseFloat(total), parseFloat(delivery_charge||0)]
     );
     const order = rows[0];
-    sendOrderEmail(order); // fire and forget
+    sendOrderEmail(order);
     res.status(201).json(order);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Orders (admin) ───────────────────────────────────────────
-// ── Orders (admin) ───────────────────────────────────────────
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM orders ORDER BY created_at DESC'
-    );
+    const { rows } = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
     res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/admin/orders/:id/status', requireAdmin, async (req, res) => {
   try {
     const { status } = req.body;
-
-    const valid = [
-      'Pending',
-      'Confirmed',
-      'Shipped',
-      'Completed',
-      'Cancelled'
-    ];
-
-    if (!valid.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-
+    const valid = ['Pending','Confirmed','Shipped','Completed','Cancelled'];
+    if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
     const { rows } = await pool.query(
       'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *',
       [status, req.params.id]
     );
-
-    if (!rows[0]) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
+    if (!rows[0]) return res.status(404).json({ error: 'Order not found' });
     res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT id FROM orders WHERE id = $1',
-      [req.params.id]
-    );
-
-    if (!rows[0]) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    await pool.query(
-      'DELETE FROM orders WHERE id = $1',
-      [req.params.id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Order deleted successfully'
-    });
-  } catch (err) {
-    console.error('Delete order error:', err);
-    res.status(500).json({ error: err.message });
-  }
+    const { rows } = await pool.query('SELECT id FROM orders WHERE id = $1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Order not found' });
+    await pool.query('DELETE FROM orders WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Order deleted successfully' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Reviews (public) ─────────────────────────────────────────
+// ── Reviews (public) — product-level ─────────────────────────
 app.get('/api/reviews', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT id, customer_name, rating, body, reply, created_at
-       FROM reviews WHERE approved = true ORDER BY created_at DESC`
-    );
+    const { product_id } = req.query;
+    let query, params;
+    if (product_id) {
+      query = `
+        SELECT r.id, r.product_id, r.customer_name, r.rating, r.title, r.body,
+          r.reply, r.verified_purchase, r.helpful_count, r.is_featured, r.is_pinned, r.created_at,
+          COALESCE(json_agg(ri ORDER BY ri.sort_order) FILTER (WHERE ri.id IS NOT NULL), '[]') AS images
+        FROM reviews r
+        LEFT JOIN review_images ri ON ri.review_id = r.id
+        WHERE r.approved = true AND r.product_id = $1
+        GROUP BY r.id
+        ORDER BY r.is_pinned DESC, r.is_featured DESC, r.created_at DESC
+      `;
+      params = [product_id];
+    } else {
+      query = `
+        SELECT r.id, r.product_id, r.customer_name, r.rating, r.title, r.body,
+          r.reply, r.verified_purchase, r.helpful_count, r.is_featured, r.is_pinned, r.created_at,
+          COALESCE(json_agg(ri ORDER BY ri.sort_order) FILTER (WHERE ri.id IS NOT NULL), '[]') AS images
+        FROM reviews r
+        LEFT JOIN review_images ri ON ri.review_id = r.id
+        WHERE r.approved = true
+        GROUP BY r.id
+        ORDER BY r.created_at DESC
+      `;
+      params = [];
+    }
+    const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/reviews', optionalUser, async (req, res) => {
+// Rating summary for a product
+app.get('/api/products/:id/rating', async (req, res) => {
   try {
-    const { customer_name, email, rating, body } = req.body;
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COALESCE(ROUND(AVG(rating)::numeric, 1), 0) AS average,
+        COUNT(CASE WHEN rating = 5 THEN 1 END)::int AS five,
+        COUNT(CASE WHEN rating = 4 THEN 1 END)::int AS four,
+        COUNT(CASE WHEN rating = 3 THEN 1 END)::int AS three,
+        COUNT(CASE WHEN rating = 2 THEN 1 END)::int AS two,
+        COUNT(CASE WHEN rating = 1 THEN 1 END)::int AS one
+      FROM reviews
+      WHERE product_id = $1 AND approved = true
+    `, [req.params.id]);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/reviews', optionalUser, upload.array('images', 5), async (req, res) => {
+  try {
+    const { customer_name, email, rating, title, body, product_id } = req.body;
     if (!customer_name || !rating || !body)
       return res.status(400).json({ error: 'Name, rating and review text are required' });
     if (rating < 1 || rating > 5)
       return res.status(400).json({ error: 'Rating must be 1–5' });
     const { rows } = await pool.query(
-      `INSERT INTO reviews (customer_name, email, rating, body)
-       VALUES ($1,$2,$3,$4) RETURNING *`,
-      [customer_name, email || null, parseInt(rating), body]
+      `INSERT INTO reviews (customer_name, email, rating, title, body, product_id, status)
+       VALUES ($1,$2,$3,$4,$5,$6,'pending') RETURNING *`,
+      [customer_name, email || null, parseInt(rating), title || null, body, product_id ? parseInt(product_id) : null]
     );
-    res.status(201).json(rows[0]);
+    const review = rows[0];
+    // Save uploaded images
+    if (req.files && req.files.length > 0) {
+      for (let i = 0; i < req.files.length; i++) {
+        await pool.query(
+          'INSERT INTO review_images (review_id, image_url, sort_order) VALUES ($1,$2,$3)',
+          [review.id, req.files[i].path, i]
+        );
+      }
+    }
+    res.status(201).json(review);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Mark helpful
+app.post('/api/reviews/:id/helpful', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'UPDATE reviews SET helpful_count = helpful_count + 1 WHERE id = $1 RETURNING helpful_count',
+      [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Review not found' });
+    res.json({ helpful_count: rows[0].helpful_count });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Reviews (admin) ───────────────────────────────────────────
 app.get('/api/admin/reviews', requireAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT * FROM reviews ORDER BY created_at DESC`
-    );
+    const { product_id, status, rating } = req.query;
+    let conditions = [];
+    let params = [];
+    if (product_id) { params.push(product_id); conditions.push(`r.product_id = $${params.length}`); }
+    if (status) { params.push(status); conditions.push(`r.status = $${params.length}`); }
+    if (rating) { params.push(parseInt(rating)); conditions.push(`r.rating = $${params.length}`); }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const { rows } = await pool.query(`
+      SELECT r.*,
+        p.name AS product_name,
+        COALESCE(json_agg(ri ORDER BY ri.sort_order) FILTER (WHERE ri.id IS NOT NULL), '[]') AS images
+      FROM reviews r
+      LEFT JOIN products p ON p.id = r.product_id
+      LEFT JOIN review_images ri ON ri.review_id = r.id
+      ${where}
+      GROUP BY r.id, p.name
+      ORDER BY r.created_at DESC
+    `, params);
     res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Review stats for admin dashboard
+app.get('/api/admin/reviews/stats', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END)::int AS pending,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END)::int AS approved,
+        COUNT(CASE WHEN status = 'rejected' THEN 1 END)::int AS rejected,
+        COALESCE(ROUND(AVG(CASE WHEN approved THEN rating END)::numeric, 1), 0) AS average_rating
+      FROM reviews
+    `);
+    res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/admin/reviews/:id/approve', requireAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `UPDATE reviews SET approved = NOT approved WHERE id=$1 RETURNING *`,
+      `UPDATE reviews SET approved = NOT approved,
+        status = CASE WHEN approved THEN 'pending' ELSE 'approved' END,
+        updated_at = NOW()
+       WHERE id=$1 RETURNING *`,
+      [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Review not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/reviews/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const valid = ['pending','approved','rejected','spam'];
+    if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    const approved = status === 'approved';
+    const { rows } = await pool.query(
+      'UPDATE reviews SET status=$1, approved=$2, updated_at=NOW() WHERE id=$3 RETURNING *',
+      [status, approved, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Review not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/reviews/:id/verified', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'UPDATE reviews SET verified_purchase = NOT verified_purchase, updated_at=NOW() WHERE id=$1 RETURNING *',
+      [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Review not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/reviews/:id/feature', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'UPDATE reviews SET is_featured = NOT is_featured, updated_at=NOW() WHERE id=$1 RETURNING *',
+      [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Review not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/reviews/:id/pin', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'UPDATE reviews SET is_pinned = NOT is_pinned, updated_at=NOW() WHERE id=$1 RETURNING *',
       [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Review not found' });
@@ -346,7 +479,7 @@ app.put('/api/admin/reviews/:id/reply', requireAdmin, async (req, res) => {
   try {
     const { reply } = req.body;
     const { rows } = await pool.query(
-      `UPDATE reviews SET reply=$1 WHERE id=$2 RETURNING *`,
+      'UPDATE reviews SET reply=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
       [reply || null, req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Review not found' });
@@ -357,6 +490,24 @@ app.put('/api/admin/reviews/:id/reply', requireAdmin, async (req, res) => {
 app.delete('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM reviews WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Bulk actions
+app.post('/api/admin/reviews/bulk', requireAdmin, async (req, res) => {
+  try {
+    const { ids, action } = req.body;
+    if (!ids || !ids.length) return res.status(400).json({ error: 'No IDs provided' });
+    if (action === 'approve') {
+      await pool.query(`UPDATE reviews SET approved=true, status='approved', updated_at=NOW() WHERE id = ANY($1)`, [ids]);
+    } else if (action === 'reject') {
+      await pool.query(`UPDATE reviews SET approved=false, status='rejected', updated_at=NOW() WHERE id = ANY($1)`, [ids]);
+    } else if (action === 'delete') {
+      await pool.query('DELETE FROM reviews WHERE id = ANY($1)', [ids]);
+    } else {
+      return res.status(400).json({ error: 'Invalid action' });
+    }
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

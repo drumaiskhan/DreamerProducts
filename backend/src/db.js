@@ -58,13 +58,37 @@ export async function initDb() {
 
     CREATE TABLE IF NOT EXISTS reviews (
       id SERIAL PRIMARY KEY,
+      product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
       customer_name TEXT NOT NULL,
       email TEXT,
       rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      title TEXT,
       body TEXT NOT NULL,
       reply TEXT,
       approved BOOLEAN NOT NULL DEFAULT false,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      status TEXT NOT NULL DEFAULT 'pending',
+      verified_purchase BOOLEAN NOT NULL DEFAULT false,
+      helpful_count INTEGER NOT NULL DEFAULT 0,
+      is_featured BOOLEAN NOT NULL DEFAULT false,
+      is_pinned BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS review_images (
+      id SERIAL PRIMARY KEY,
+      review_id INTEGER REFERENCES reviews(id) ON DELETE CASCADE,
+      image_url TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS review_replies (
+      id SERIAL PRIMARY KEY,
+      review_id INTEGER REFERENCES reviews(id) ON DELETE CASCADE,
+      admin_id INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+      reply TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS site_settings (
@@ -84,6 +108,27 @@ export async function initDb() {
   // Add delivery_charge column to orders if it doesn't exist yet
   await pool.query(`
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_charge NUMERIC NOT NULL DEFAULT 0;
+  `).catch(() => {});
+
+  // Migrate old reviews: add new columns if missing
+  const migrations = [
+    `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS product_id INTEGER REFERENCES products(id) ON DELETE CASCADE`,
+    `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS title TEXT`,
+    `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`,
+    `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS verified_purchase BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS helpful_count INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+  ];
+  for (const sql of migrations) {
+    await pool.query(sql).catch(() => {});
+  }
+
+  // Sync status with approved flag for existing rows
+  await pool.query(`
+    UPDATE reviews SET status = CASE WHEN approved THEN 'approved' ELSE 'pending' END
+    WHERE status = 'pending' AND approved = true
   `).catch(() => {});
 }
 

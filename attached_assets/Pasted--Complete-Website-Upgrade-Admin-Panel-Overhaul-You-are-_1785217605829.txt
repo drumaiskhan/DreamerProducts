@@ -1,0 +1,779 @@
+# Complete Website Upgrade & Admin Panel Overhaul
+
+You are a senior full-stack developer and UI/UX designer. Refactor my entire website while preserving all existing functionality. Do NOT break any API routes, backend logic, authentication, database schema, or existing features unless explicitly improving them.
+
+## Main Goal
+
+Transform my website into a premium, modern, luxury skincare and beauty e-commerce website with a polished frontend, powerful admin panel, excellent performance, and a clean responsive design.
+
+---
+
+# 1. Fix Layout Issues
+
+The website currently has an unwanted blank/empty space on the left side.
+
+Find the exact cause and permanently fix it.
+
+Check for:
+
+* incorrect margins
+* body padding
+* container width
+* overflow-x
+* grid sizing
+* flex sizing
+* sidebar width
+* translateX
+* absolute positioning
+* hidden elements
+* negative margins
+
+Requirements:
+
+* No horizontal scrolling.
+* Content must be perfectly centred.
+* Every page should use full available width.
+* Mobile and desktop must both be fixed.
+
+---
+
+# 2. Premium UI Redesign
+
+Redesign the complete frontend.
+
+Theme:
+
+Luxury skincare brand
+
+Style:
+
+* Apple
+* Aesop
+* Dior Beauty
+* Glossier
+* Rare Beauty
+* Minimal but premium
+
+Colour Palette
+
+Background:
+#FAF8F5
+
+Cards:
+#FFFFFF
+
+Primary:
+#1C1C1C
+
+Secondary:
+#6B6B6B
+
+Accent:
+#D9B99B
+
+Borders:
+#ECECEC
+
+Hover:
+Soft shadow and smooth animation
+
+---
+
+# Typography
+
+Use modern fonts.
+
+Headings:
+Playfair Display
+
+Body:
+Inter
+
+Buttons:
+Inter SemiBold
+
+Improve:
+
+* spacing
+* hierarchy
+* readability
+* consistency
+
+---
+
+# Animations
+
+Use tasteful animations only.
+
+Examples:
+
+* fade up
+* fade in
+* image zoom
+* hover lift
+* smooth transitions
+* button ripple
+* loading skeletons
+* smooth page transitions
+
+Avoid flashy animations.
+
+---
+
+# Homepage Improvements
+
+Redesign:
+
+Hero
+
+Categories
+
+Featured Products
+
+Testimonials
+
+Brand Story
+
+Newsletter
+
+Footer
+
+Improve spacing.
+
+Improve typography.
+
+Improve CTA buttons.
+
+Make homepage look premium.
+
+---
+
+# Hero Section
+
+Large modern hero.
+
+Improve headline.
+
+Improve subtitle.
+
+Add:
+
+* CTA buttons
+* trust badges
+* elegant layout
+* responsive design
+
+---
+
+# Product Cards
+
+Redesign completely.
+
+Requirements:
+
+Large image
+
+Rounded corners
+
+Hover animation
+
+Wishlist icon
+
+Quick View
+
+Add to Cart
+
+Stock badge
+
+Sale badge
+
+Rating
+
+Price
+
+Old price
+
+Beautiful spacing
+
+Consistent sizing
+
+No inline styling issues.
+
+Every product card should look polished.
+
+---
+
+# Product Page
+
+Improve:
+
+Gallery
+
+Zoom
+
+Description
+
+Ingredients
+
+Benefits
+
+Reviews
+
+Related products
+
+Add:
+
+Quantity selector
+
+Wishlist
+
+Share
+
+Availability
+
+SKU
+
+Category
+
+---
+
+# Search
+
+Improve search.
+
+Add:
+
+instant search
+
+live suggestions
+
+category filter
+
+price filter
+
+sorting
+
+search history
+
+no-results suggestions
+
+---
+
+# Shopping Cart
+
+Improve design.
+
+Better drawer.
+
+Better quantity controls.
+
+Smooth updates.
+
+Subtotal.
+
+Discount.
+
+Shipping estimate.
+
+Proceed to checkout.
+
+---
+
+# Responsive Design
+
+Perfect responsiveness.
+
+Support:
+
+Desktop
+
+Laptop
+
+Tablet
+
+Mobile
+
+No overlapping.
+
+No overflow.
+
+No cropped content.
+
+No broken grids.
+
+---
+
+# Performance
+
+Lazy loading
+
+Image optimisation
+
+Code splitting
+
+Memoisation
+
+Remove unnecessary renders
+
+Optimise API calls
+
+Reduce bundle size
+
+Improve Lighthouse score
+
+---
+
+# Accessibility
+
+Keyboard navigation
+
+ARIA labels
+
+Colour contrast
+
+Focus states
+
+Alt text
+
+Semantic HTML
+
+---
+
+# SEO
+
+Meta tags
+
+Dynamic titles
+
+Open Graph
+
+Twitter Cards
+
+Structured data
+
+Canonical URLs
+
+Sitemap
+
+robots.txt
+
+---
+
+# Admin Panel Overhaul
+
+Completely redesign the admin dashboard.
+
+Modern dashboard similar to Shopify or Stripe.
+
+Responsive.
+
+Dark and Light mode.
+
+Professional layout.
+
+---
+
+# Admin Dashboard
+
+Show cards for:
+
+Total Sales
+
+Revenue
+
+Orders
+
+Products
+
+Customers
+
+Visitors
+
+Conversion Rate
+
+Pending Orders
+
+Low Stock
+
+Out of Stock
+
+Recent Activity
+
+Charts
+
+Weekly Sales
+
+Monthly Sales
+
+Revenue Graph
+
+Top Products
+
+Best Categories
+
+---
+
+# Products Manager
+
+Admin must be able to:
+
+Create products
+
+Edit products
+
+Delete products
+
+Duplicate products
+
+Hide products
+
+Publish products
+
+Schedule products
+
+Bulk delete
+
+Bulk edit
+
+Search
+
+Sort
+
+Filter
+
+Upload multiple images
+
+Drag and reorder images
+
+Set featured image
+
+Manage inventory
+
+SKU
+
+Price
+
+Discount
+
+Stock
+
+Category
+
+Tags
+
+Brand
+
+Description
+
+Ingredients
+
+Benefits
+
+Directions
+
+Status
+
+SEO title
+
+SEO description
+
+Slug
+
+---
+
+# Homepage Editor
+
+Make every homepage section editable from the admin panel.
+
+Without touching code.
+
+Admin should edit:
+
+Hero
+
+Headline
+
+Subtitle
+
+Images
+
+Buttons
+
+Categories
+
+Testimonials
+
+Brand Story
+
+Newsletter
+
+Footer
+
+Banners
+
+Colours
+
+Announcement Bar
+
+Promotions
+
+Everything should save directly to the database.
+
+---
+
+# Theme Settings
+
+Create a settings page.
+
+Allow changing:
+
+Colours
+
+Fonts
+
+Logo
+
+Favicon
+
+Buttons
+
+Spacing
+
+Border radius
+
+Footer
+
+Header
+
+Announcement Bar
+
+Site Name
+
+Contact Information
+
+Social Links
+
+Email
+
+Phone
+
+Address
+
+---
+
+# Orders
+
+Improve order management.
+
+View
+
+Search
+
+Filter
+
+Status updates
+
+Timeline
+
+Customer details
+
+Print invoice
+
+Export
+
+Tracking
+
+Notes
+
+Order history
+
+---
+
+# Customers
+
+Customer list
+
+Search
+
+Order history
+
+Total spent
+
+Addresses
+
+Notes
+
+Account status
+
+---
+
+# Analytics
+
+Dashboard charts
+
+Top products
+
+Revenue
+
+Orders
+
+Visitors
+
+Conversion
+
+Average order value
+
+Monthly comparison
+
+---
+
+# Media Library
+
+Create a complete media manager.
+
+Upload
+
+Delete
+
+Folders
+
+Search
+
+Preview
+
+Image optimisation
+
+Replace images
+
+Reuse existing media
+
+---
+
+# Forms
+
+Better validation
+
+Loading states
+
+Success messages
+
+Error handling
+
+Prevent duplicate submissions
+
+---
+
+# Notifications
+
+Toast notifications
+
+Success
+
+Error
+
+Warning
+
+Info
+
+---
+
+# Security
+
+Admin authentication
+
+Protected routes
+
+Input validation
+
+Rate limiting
+
+CSRF protection
+
+Sanitisation
+
+Secure cookies
+
+Password hashing
+
+---
+
+# Database
+
+Do NOT break existing tables.
+
+Only add new tables if required.
+
+Create migrations safely.
+
+Maintain backwards compatibility.
+
+---
+
+# Code Quality
+
+Refactor components.
+
+Remove duplicate code.
+
+Use reusable components.
+
+Consistent naming.
+
+Clean folder structure.
+
+Optimise imports.
+
+Comments where necessary.
+
+---
+
+# Bugs
+
+Find and fix every bug.
+
+Check:
+
+Broken images
+
+404 pages
+
+API errors
+
+Console errors
+
+React warnings
+
+Layout shifts
+
+Loading bugs
+
+Duplicate requests
+
+Memory leaks
+
+Missing keys
+
+Responsive bugs
+
+Admin bugs
+
+Product bugs
+
+Cart bugs
+
+---
+
+# Final Requirement
+
+Before finishing:
+
+1. Test every page.
+2. Test every API endpoint.
+3. Test desktop, tablet and mobile.
+4. Remove unused code.
+5. Ensure there are no console errors.
+6. Ensure there are no horizontal scrollbars.
+7. Ensure there is no extra blank space anywhere.
+8. Preserve all existing functionality.
+9. Do not remove any feature unless replacing it with a better version.
+10. Deliver production-ready, clean, maintainable code.

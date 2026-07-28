@@ -94,7 +94,7 @@ export default function BrandStory() {
           box-shadow: var(--shadow-lg); display: block;
         }
         .brand-img-badge {
-          position: absolute; bottom: 28px; right: -24px;
+          position: absolute; bottom: 28px; right: 16px;
           background: var(--forest); border-radius: 6px;
           padding: 18px 22px; box-shadow: var(--shadow);
           display: flex; flex-direction: column;

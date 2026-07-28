@@ -75,7 +75,7 @@ export default function Newsletter() {
           margin-bottom: 18px;
         }
         .nl-rx-mark {
-          font-family: 'Cormorant Garamond', serif;
+          font-family: 'Playfair Display', serif;
           font-size: 16px; font-weight: 600; font-style: italic;
           color: var(--sage-light);
         }

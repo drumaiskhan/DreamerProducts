@@ -6,13 +6,18 @@ function Stars({ count }) {
   return (
     <div className="stars" aria-label={`${count} out of 5 stars`}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className={i < count ? 'star filled' : 'star'}>★</span>
+        <svg key={i} width="13" height="13" viewBox="0 0 24 24"
+          fill={i < count ? '#D9B99B' : 'none'}
+          stroke={i < count ? '#D9B99B' : '#D8D8D8'}
+          strokeWidth="2">
+          <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+        </svg>
       ))}
     </div>
   );
 }
 
-const AVATAR_COLORS = ['#7A9E8E', '#C9A96E', '#8BA8B8', '#A8B87A', '#B87A8A'];
+const AVATAR_COLORS = ['#D9B99B','#7A9E8E','#8BA8B8','#A8B87A','#B87A8A'];
 
 function initials(name) {
   return name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -51,7 +56,7 @@ export default function Testimonials() {
     <section className="testi-section" ref={ref}>
       <div className="container">
         <div className={`testi-header ${inView ? 'visible' : ''}`}>
-          <p className="eyebrow">Patient Reviews</p>
+          <p className="eyebrow">Customer Reviews</p>
           <h2 className="display testi-title">What Our Customers Say</h2>
           <p className="testi-intro">Real results, real stories. Every review is verified and approved by our team.</p>
         </div>
@@ -62,7 +67,7 @@ export default function Testimonials() {
               <div
                 key={r.id}
                 className={`testi-card ${inView ? 'visible' : ''}`}
-                style={{ transitionDelay: `${0.08 + i * 0.12}s` }}
+                style={{ transitionDelay: `${0.08 + i * 0.1}s` }}
               >
                 <Stars count={r.rating} />
                 <p className="testi-text">"{r.body}"</p>
@@ -79,7 +84,7 @@ export default function Testimonials() {
                 </div>
                 {r.reply && (
                   <div className="testi-reply">
-                    <span className="testi-reply-label">Dreamer Products replied:</span>
+                    <span className="testi-reply-label">Official Dreamer Products Response</span>
                     <p className="testi-reply-text">{r.reply}</p>
                   </div>
                 )}
@@ -137,89 +142,88 @@ export default function Testimonials() {
       </div>
 
       <style>{`
-        .testi-section { padding: 100px 0; background: #fff; }
+        .testi-section { padding: 96px 0; background: #fff; }
         .testi-header {
           text-align: center; margin-bottom: 52px;
           opacity: 0; transform: translateY(18px);
           transition: opacity 0.65s ease, transform 0.65s ease;
         }
         .testi-header.visible { opacity: 1; transform: translateY(0); }
-        .testi-title { font-size: 40px; margin-bottom: 12px; }
-        .testi-intro { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+        .testi-title { font-size: 38px; margin-bottom: 12px; }
+        .testi-intro { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--ink-soft); margin: 0; }
 
         .testi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
         .testi-card {
-          background: var(--cream); border-radius: 4px; padding: 28px 26px;
+          background: var(--bg); border-radius: var(--radius); padding: 26px 24px;
           border: 1px solid var(--border);
           opacity: 0; transform: translateY(20px);
-          transition: opacity 0.6s ease, transform 0.6s ease, box-shadow 0.28s ease;
+          transition: opacity 0.6s ease, transform 0.6s ease, box-shadow 0.25s ease;
         }
         .testi-card.visible { opacity: 1; transform: translateY(0); }
         .testi-card:hover { box-shadow: var(--shadow-sm); }
 
-        .stars { margin-bottom: 16px; }
-        .star { font-size: 14px; color: #D9CDB8; }
-        .star.filled { color: var(--gold); }
+        .stars { margin-bottom: 14px; display: flex; gap: 2px; }
 
         .testi-text {
-          font-family: 'Cormorant Garamond', serif;
-          font-size: 17px; line-height: 1.65; color: var(--ink);
-          margin: 0 0 22px; font-style: italic; font-weight: 500;
+          font-family: 'Playfair Display', serif;
+          font-size: 16px; line-height: 1.65; color: var(--ink);
+          margin: 0 0 20px; font-style: italic; font-weight: 500;
         }
         .testi-author { display: flex; align-items: center; gap: 12px; }
         .testi-avatar {
-          width: 38px; height: 38px; border-radius: 50%;
+          width: 36px; height: 36px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+          font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
         }
-        .testi-name { font-size: 13px; font-weight: 700; margin: 0 0 2px; color: var(--ink); }
-        .testi-location { font-size: 11.5px; color: var(--ink-muted); margin: 0; }
+        .testi-name { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; margin: 0 0 2px; color: var(--ink); }
+        .testi-location { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--ink-muted); margin: 0; }
 
         .testi-reply {
-          margin-top: 18px; padding: 12px 14px;
-          background: var(--sage-pale);
-          border-left: 2px solid var(--sage);
+          margin-top: 16px; padding: 12px 14px;
+          background: rgba(217,185,155,0.1);
+          border-left: 2px solid var(--accent);
           border-radius: 0 6px 6px 0;
         }
         .testi-reply-label {
-          font-size: 10px; font-weight: 700; text-transform: uppercase;
-          letter-spacing: 0.1em; color: var(--sage); display: block; margin-bottom: 5px;
+          font-family: 'Inter', sans-serif;
+          font-size: 9px; font-weight: 700; text-transform: uppercase;
+          letter-spacing: 0.1em; color: var(--accent-dark); display: block; margin-bottom: 5px;
         }
-        .testi-reply-text { font-size: 13px; color: var(--ink); margin: 0; line-height: 1.6; }
+        .testi-reply-text { font-family: 'Inter', sans-serif; font-size: 12.5px; color: var(--ink); margin: 0; line-height: 1.6; }
 
-        .testi-empty { text-align: center; color: var(--ink-soft); font-size: 14.5px; margin: 0 0 32px; }
+        .testi-empty { text-align: center; font-family: 'Inter', sans-serif; color: var(--ink-soft); font-size: 14px; margin: 0 0 32px; }
         .testi-cta-row { text-align: center; margin-top: 44px; }
-        .testi-thanks { color: var(--sage); font-weight: 500; font-size: 14px; font-style: italic; }
+        .testi-thanks { font-family: 'Inter', sans-serif; color: #4A8C6A; font-weight: 500; font-size: 14px; font-style: italic; }
 
         .testi-form {
           max-width: 580px; margin: 36px auto 0;
-          background: var(--cream); border: 1px solid var(--border);
-          border-radius: 4px; padding: 32px;
+          background: #fff; border: 1px solid var(--border);
+          border-radius: var(--radius); padding: 32px;
         }
         .testi-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .testi-form-error {
           background: #FEE8E8; color: #9B2020;
-          font-size: 13px; padding: 10px 14px;
-          border-radius: 4px; margin-bottom: 16px;
+          font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 14px;
+          border-radius: 6px; margin-bottom: 16px;
         }
         .testi-star-picker { display: flex; gap: 4px; }
         .star-pick {
           background: none; border: none; font-size: 26px;
-          cursor: pointer; color: #D9CDB8;
+          cursor: pointer; color: #D8D8D8;
           transition: color .15s, transform .1s; padding: 0; line-height: 1;
         }
-        .star-pick:hover, .star-pick.on { color: var(--gold); transform: scale(1.15); }
+        .star-pick:hover, .star-pick.on { color: var(--accent); transform: scale(1.15); }
 
         @media (max-width: 768px) {
           .testi-section { padding: 64px 0; }
           .testi-grid { grid-template-columns: 1fr; }
           .testi-form-row { grid-template-columns: 1fr; }
-          .testi-title { font-size: 30px; }
-          .testi-form { padding: 24px 18px; }
+          .testi-title { font-size: 28px; }
+          .testi-form { padding: 22px 16px; }
         }
         @media (max-width: 480px) {
-          .testi-section { padding: 56px 0; }
-          .testi-title { font-size: 26px; }
+          .testi-section { padding: 52px 0; }
+          .testi-title { font-size: 24px; }
         }
       `}</style>
     </section>

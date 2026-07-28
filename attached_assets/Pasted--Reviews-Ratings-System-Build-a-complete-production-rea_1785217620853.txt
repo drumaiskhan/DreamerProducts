@@ -1,0 +1,242 @@
+# Reviews & Ratings System
+
+Build a complete, production-ready review and rating system similar to Amazon, Sephora, or Shopify.
+
+## Product Ratings
+
+Every product should display:
+
+* Average rating (1–5 stars)
+* Total number of reviews
+* Rating distribution (5★ to 1★ bars)
+* Star rating beside the product title
+* Rating shown on product cards
+* Rating shown in search results
+* Rating shown in featured products
+* Rating updates automatically whenever a review is added, edited, approved, or deleted.
+
+---
+
+## Customer Reviews
+
+Users should be able to submit reviews from the product page.
+
+Each review should include:
+
+* Star rating (1–5)
+* Review title
+* Review text
+* Customer name
+* Optional email (hidden from public)
+* Verified Purchase badge (admin controlled)
+* Upload multiple images (up to 5)
+* Optional short video support (future-ready)
+* Review date
+* Helpful/Not Helpful buttons
+* Report Review option
+
+Image uploads should:
+
+* Preview before submission
+* Compress automatically
+* Open in a lightbox when clicked
+* Be responsive on mobile and desktop
+
+---
+
+## Review Moderation
+
+Reviews should NOT appear publicly until approved by an admin.
+
+Review statuses:
+
+* Pending
+* Approved
+* Rejected
+* Spam
+
+Admins should be able to:
+
+* Approve
+* Reject
+* Edit
+* Delete
+* Feature reviews
+* Mark as Verified Purchase
+* Reply to reviews
+* Pin important reviews
+* Filter by product
+* Filter by rating
+* Search reviews
+* Bulk approve
+* Bulk reject
+* Bulk delete
+
+---
+
+## Admin Review Manager
+
+Create a dedicated "Reviews" section inside the admin dashboard.
+
+Display:
+
+* Total Reviews
+* Pending Reviews
+* Approved Reviews
+* Average Rating
+* Lowest Rated Products
+* Highest Rated Products
+* Most Reviewed Products
+
+Each review should display:
+
+* Product
+* Customer Name
+* Rating
+* Review Title
+* Review Content
+* Uploaded Images
+* Submission Date
+* Status
+* Admin Reply
+* Verified Badge Status
+
+---
+
+## Admin Replies
+
+Admins should be able to reply to customer reviews.
+
+Replies should:
+
+* Appear directly below the review
+* Be labelled as "Official Dreamer Products Response"
+* Include reply date
+* Allow editing
+* Allow deleting
+
+Frontend example:
+
+★★★★★
+
+"Absolutely love this face serum!"
+
+(Review text...)
+
+📷 Customer Photos
+
+Official Dreamer Products Response
+
+"Thank you for your wonderful feedback! We're so happy you're enjoying the product."
+
+---
+
+## Frontend Review Section
+
+Display:
+
+Overall Rating
+
+★★★★★ 4.8/5
+
+Based on 327 Reviews
+
+Show:
+
+* Rating breakdown
+* Featured reviews
+* Customer photos gallery
+* Sort reviews by:
+
+  * Newest
+  * Oldest
+  * Highest Rating
+  * Lowest Rating
+  * Most Helpful
+
+Filters:
+
+* With Photos
+* Verified Purchase
+* 5 Stars
+* 4 Stars
+* 3 Stars
+* 2 Stars
+* 1 Star
+
+---
+
+## Review Submission Form
+
+Create a beautiful review form with:
+
+* Interactive star selector
+* Review title
+* Review message
+* Image uploader with drag-and-drop
+* Image previews
+* Character counter
+* Loading animation
+* Success message
+* Error validation
+
+The form should be fully responsive and modern.
+
+---
+
+## Database
+
+Create proper database tables if they do not already exist.
+
+Suggested fields:
+
+Reviews
+
+* id
+* product_id
+* customer_name
+* email
+* rating
+* title
+* review
+* status
+* verified_purchase
+* helpful_count
+* created_at
+* updated_at
+
+Review Images
+
+* id
+* review_id
+* image_url
+* sort_order
+
+Review Replies
+
+* id
+* review_id
+* admin_id
+* reply
+* created_at
+* updated_at
+
+---
+
+## Performance
+
+* Lazy-load review images.
+* Optimise uploaded images.
+* Paginate long review lists.
+* Cache average ratings where appropriate.
+* Keep all rating values in sync automatically.
+
+---
+
+## UI/UX
+
+Design the reviews section to feel premium, clean, and trustworthy.
+
+Use smooth animations, elegant spacing, rounded cards, responsive layouts, and a luxury aesthetic consistent with the rest of the website.
+
+The entire review and rating system should work seamlessly on desktop, tablet, and mobile without breaking any existing functionality.

@@ -46,6 +46,9 @@ export const api = {
   getProduct: (id) =>
     fetch(`${API_BASE}/api/products/${id}`).then(handle),
 
+  getProductRating: (id) =>
+    fetch(`${API_BASE}/api/products/${id}/rating`).then(handle),
+
   // ── Products (admin) ──
   getAdminProducts: () =>
     fetch(`${API_BASE}/api/admin/products`, { headers: adminHeaders() }).then(handle),
@@ -89,21 +92,61 @@ export const api = {
     }).then(handle),
 
   // ── Reviews (public) ──
-  getReviews: () =>
-    fetch(`${API_BASE}/api/reviews`).then(handle),
+  getReviews: (productId) =>
+    fetch(`${API_BASE}/api/reviews${productId ? `?product_id=${productId}` : ''}`).then(handle),
 
-  submitReview: (data) =>
-    fetch(`${API_BASE}/api/reviews`, {
+  submitReview: (data) => {
+    // data can include files — use FormData when images present
+    if (data instanceof FormData) {
+      return fetch(`${API_BASE}/api/reviews`, {
+        method: 'POST',
+        headers: userHeaders(),
+        body: data
+      }).then(handle);
+    }
+    return fetch(`${API_BASE}/api/reviews`, {
       method: 'POST', headers: { ...json(), ...userHeaders() },
       body: JSON.stringify(data)
+    }).then(handle);
+  },
+
+  markHelpful: (id) =>
+    fetch(`${API_BASE}/api/reviews/${id}/helpful`, {
+      method: 'POST'
     }).then(handle),
 
   // ── Reviews (admin) ──
-  getAdminReviews: () =>
-    fetch(`${API_BASE}/api/admin/reviews`, { headers: adminHeaders() }).then(handle),
+  getAdminReviews: (params) => {
+    const q = new URLSearchParams(params || {}).toString();
+    return fetch(`${API_BASE}/api/admin/reviews${q ? `?${q}` : ''}`, { headers: adminHeaders() }).then(handle);
+  },
+
+  getAdminReviewStats: () =>
+    fetch(`${API_BASE}/api/admin/reviews/stats`, { headers: adminHeaders() }).then(handle),
 
   toggleApproveReview: (id) =>
     fetch(`${API_BASE}/api/admin/reviews/${id}/approve`, {
+      method: 'PUT', headers: adminHeaders()
+    }).then(handle),
+
+  setReviewStatus: (id, status) =>
+    fetch(`${API_BASE}/api/admin/reviews/${id}/status`, {
+      method: 'PUT', headers: { ...json(), ...adminHeaders() },
+      body: JSON.stringify({ status })
+    }).then(handle),
+
+  toggleVerifiedReview: (id) =>
+    fetch(`${API_BASE}/api/admin/reviews/${id}/verified`, {
+      method: 'PUT', headers: adminHeaders()
+    }).then(handle),
+
+  toggleFeatureReview: (id) =>
+    fetch(`${API_BASE}/api/admin/reviews/${id}/feature`, {
+      method: 'PUT', headers: adminHeaders()
+    }).then(handle),
+
+  togglePinReview: (id) =>
+    fetch(`${API_BASE}/api/admin/reviews/${id}/pin`, {
       method: 'PUT', headers: adminHeaders()
     }).then(handle),
 
@@ -116,6 +159,12 @@ export const api = {
   deleteReview: (id) =>
     fetch(`${API_BASE}/api/admin/reviews/${id}`, {
       method: 'DELETE', headers: adminHeaders()
+    }).then(handle),
+
+  bulkReviewAction: (ids, action) =>
+    fetch(`${API_BASE}/api/admin/reviews/bulk`, {
+      method: 'POST', headers: { ...json(), ...adminHeaders() },
+      body: JSON.stringify({ ids, action })
     }).then(handle),
 
   // ── Contact ──
