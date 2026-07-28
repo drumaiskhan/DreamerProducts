@@ -1,0 +1,142 @@
+# Feature Additions — Core Commerce Gaps
+
+You are a senior full-stack developer. Add the following features to my existing
+website WITHOUT breaking any current functionality, routes, database schema,
+authentication, or UI. Preserve everything that already works. Only add or
+extend — do not remove existing features unless explicitly replacing them
+with a required upgrade below.
+
+---
+
+# 1. Payment Integration
+
+Checkout currently only records an order with no real payment step.
+
+Add:
+- Integrate a payment gateway (Stripe preferred, or Razorpay if better suited
+  to my region) into the checkout flow
+- Support card payment and "Cash on Delivery" as a fallback option
+- Store payment status on the order (pending / paid / failed / refunded)
+- Show payment status in the admin Orders tab
+- Handle payment webhooks so order status updates automatically on success/failure
+- Do not remove the existing order fields already saved (customer_name, email,
+  phone, address, city, notes, items, total, delivery_charge)
+
+---
+
+# 2. Stock Enforcement
+
+Products already have a `stock` field but it is never checked or decremented.
+
+Add:
+- On order placement, validate that each item's requested quantity does not
+  exceed available stock
+- Decrement stock when an order is successfully placed/paid
+- Restore stock if an order is cancelled or deleted by admin
+- Show "Out of Stock" / "Only X left" badges on product cards and product
+  detail pages
+- Prevent "Add to Cart" when stock is 0
+
+---
+
+# 3. User Order History
+
+Logged-in users currently have no way to see their own past orders.
+
+Add:
+- New API route: `GET /api/orders/mine` (auth-protected, returns only the
+  logged-in user's orders)
+- New frontend page: "My Orders" showing order list with status, date, items,
+  total
+- Order detail view for a single past order
+- Link to this page from the user account/nav menu
+
+---
+
+# 4. Forgot Password / Reset Flow
+
+Neither user login nor admin login has a password recovery option.
+
+Add:
+- "Forgot password" link on both Login and AdminLogin pages
+- Backend route to generate a secure, time-limited reset token and email it
+- Reset password page that accepts the token and sets a new password
+- Do not change how existing login/signup works otherwise
+
+---
+
+# 5. Pagination
+
+Products, Orders, Reviews, and Users are all fetched as unbounded
+`SELECT * ... ORDER BY` queries.
+
+Add:
+- Server-side pagination (limit/offset or cursor-based) for:
+  - `GET /api/products`
+  - `GET /api/admin/orders`
+  - `GET /api/admin/reviews`
+  - `GET /api/admin/users`
+- Frontend pagination controls (or infinite scroll) on the corresponding
+  admin tabs and the public product listing
+- Keep response shape backward-compatible where possible, or version the
+  endpoint if a breaking change is required
+
+---
+
+# 6. Discount / Coupon Codes
+
+Add:
+- New `coupons` table (code, discount type [percent/fixed], value, expiry,
+  usage limit, active flag)
+- Admin tab or section to create/edit/delete coupon codes
+- Coupon code input field in the cart/checkout that validates and applies
+  the discount to the order total
+- Store the applied coupon (if any) on the order record
+
+---
+
+# 7. Product Filtering & Sorting (Storefront)
+
+Add to the product listing page:
+- Filter by category
+- Filter by price range
+- Sort by price (low-high, high-low), newest, and rating
+- Preserve existing product card design and current listing behavior when
+  no filters are applied
+
+---
+
+# 8. Admin Analytics
+
+The admin dashboard currently only has management tabs, no insights.
+
+Add a new "Analytics" or expand the existing dashboard summary with:
+- Revenue over time (chart, e.g. last 30/90 days)
+- Order count trend
+- Top-selling products
+- Low-stock / out-of-stock alert list
+- Average order value
+
+---
+
+# 9. Order Status Emails
+
+Only an initial order confirmation email currently exists.
+
+Add:
+- Email sent to customer when admin updates order status (e.g. shipped,
+  delivered, cancelled)
+- Keep the existing `sendOrderEmail` behavior for new orders intact
+
+---
+
+# Constraints
+
+- Do not break any existing API route, response shape, or database column.
+- Add new database columns/tables only with safe, additive migrations
+  (`IF NOT EXISTS` style, matching the existing pattern in `db.js`).
+- Match the existing code style, folder structure, and auth middleware
+  patterns (`requireAdmin`, `requireUser`, `optionalUser`).
+- Test each new feature end-to-end (API + UI) before considering it done.
+- No console errors, no broken existing pages, no regressions in current
+  admin or user flows.

@@ -447,6 +447,7 @@ function ReviewsTab() {
   const [replyDraft, setReplyDraft] = useState({});
   const [savingReply, setSavingReply] = useState({});
   const [filter, setFilter] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
 
   function load() {
     setLoading(true);
@@ -487,20 +488,25 @@ function ReviewsTab() {
     <>
       <div className="dash-toolbar">
         <h1>Reviews <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-soft)' }}>({filtered.length})</span></h1>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <select value={filter} onChange={e => setFilter(e.target.value)} style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: 'inherit', background: '#fff', cursor: 'pointer' }}>
             <option value="all">All reviews</option>
             <option value="pending">Pending approval</option>
             <option value="approved">Approved</option>
           </select>
           <button className="btn-ghost" onClick={load} style={{ fontSize: 13 }}>↻ Refresh</button>
+          <button className="btn btn-primary" style={{ fontSize: 13 }} onClick={() => setShowAdd(true)}>+ Add Review</button>
         </div>
       </div>
       {loading && <p className="state-msg">Loading…</p>}
       {error && <p className="state-msg" style={{ color: '#b91c1c' }}>{error}</p>}
       {!loading && !error && (
         filtered.length === 0 ? (
-          <div className="dash-empty"><p className="dash-empty-icon">💬</p><p>No reviews {filter !== 'all' ? 'in this category' : 'yet'}.</p></div>
+          <div className="dash-empty">
+            <p className="dash-empty-icon">💬</p>
+            <p>No reviews {filter !== 'all' ? 'in this category' : 'yet'}.</p>
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>Add first review</button>
+          </div>
         ) : (
           <div className="table-wrap">
             <table>
@@ -544,7 +550,165 @@ function ReviewsTab() {
           </div>
         )
       )}
+      {showAdd && (
+        <AddReviewModal
+          onClose={() => setShowAdd(false)}
+          onSaved={() => { setShowAdd(false); load(); }}
+        />
+      )}
     </>
+  );
+}
+
+// ─── Add Review Modal ──────────────────────────────────────────
+function AddReviewModal({ onClose, onSaved }) {
+  const [products, setProducts] = useState([]);
+  const [form, setForm] = useState({ customer_name: '', email: '', rating: 5, title: '', body: '', product_id: '', approved: true });
+  const [images, setImages] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const fileRef = useRef();
+
+  useEffect(() => {
+    api.getAdminProducts().then(setProducts).catch(() => {});
+  }, []);
+
+  function setField(key, val) { setForm(f => ({ ...f, [key]: val })); }
+
+  function handleImages(e) {
+    const files = Array.from(e.target.files).slice(0, 5);
+    setImages(files);
+    setPreviews(files.map(f => URL.createObjectURL(f)));
+  }
+
+  function removeImage(i) {
+    setImages(prev => prev.filter((_, idx) => idx !== i));
+    setPreviews(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.customer_name.trim() || !form.body.trim()) return setError('Name and review text are required.');
+    setSaving(true); setError('');
+    const fd = new FormData();
+    fd.append('customer_name', form.customer_name);
+    fd.append('email', form.email);
+    fd.append('rating', form.rating);
+    fd.append('title', form.title);
+    fd.append('body', form.body);
+    if (form.product_id) fd.append('product_id', form.product_id);
+    fd.append('approved', form.approved ? 'true' : 'false');
+    images.forEach(img => fd.append('images', img));
+    try {
+      await api.createAdminReview(fd);
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 540, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add Review</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--ink-soft)', lineHeight: 1, padding: '2px 6px' }}>✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Customer name */}
+          <div className="sfield">
+            <label>Customer Name *</label>
+            <input value={form.customer_name} onChange={e => setField('customer_name', e.target.value)} placeholder="e.g. Sara Khan" required />
+          </div>
+
+          {/* Email */}
+          <div className="sfield">
+            <label>Email <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional)</span></label>
+            <input type="email" value={form.email} onChange={e => setField('email', e.target.value)} placeholder="customer@email.com" />
+          </div>
+
+          {/* Star rating */}
+          <div className="sfield">
+            <label>Star Rating *</label>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <button key={n} type="button" onClick={() => setField('rating', n)}
+                  style={{ fontSize: 28, background: 'none', border: 'none', cursor: 'pointer', color: n <= form.rating ? '#E8C77E' : '#D1D5DB', padding: '0 2px', lineHeight: 1, transition: 'color .15s' }}>
+                  ★
+                </button>
+              ))}
+              <span style={{ fontSize: 13, color: 'var(--ink-soft)', marginLeft: 8 }}>{form.rating} / 5</span>
+            </div>
+          </div>
+
+          {/* Product */}
+          <div className="sfield">
+            <label>Product <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional)</span></label>
+            <select value={form.product_id} onChange={e => setField('product_id', e.target.value)}
+              style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: 'inherit', background: '#fff', cursor: 'pointer', outline: 'none' }}>
+              <option value="">— General review (no specific product) —</option>
+              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+
+          {/* Title */}
+          <div className="sfield">
+            <label>Review Title <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional)</span></label>
+            <input value={form.title} onChange={e => setField('title', e.target.value)} placeholder="e.g. Absolutely love this product!" />
+          </div>
+
+          {/* Body */}
+          <div className="sfield">
+            <label>Review Text *</label>
+            <textarea value={form.body} onChange={e => setField('body', e.target.value)}
+              placeholder="Write the customer's review here…" style={{ minHeight: 100 }} required />
+          </div>
+
+          {/* Images */}
+          <div className="sfield">
+            <label>Review Images <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(up to 5 · requires Cloudinary)</span></label>
+            <button type="button" className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => fileRef.current?.click()}>
+              📎 Choose images from device
+            </button>
+            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" multiple style={{ display: 'none' }} onChange={handleImages} />
+            {previews.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                {previews.map((src, i) => (
+                  <div key={i} style={{ position: 'relative' }}>
+                    <img src={src} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                    <button type="button" onClick={() => removeImage(i)}
+                      style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Approve toggle */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14, userSelect: 'none' }}>
+            <input type="checkbox" checked={form.approved} onChange={e => setField('approved', e.target.checked)}
+              style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--forest)' }} />
+            Publish immediately (mark as approved)
+          </label>
+
+          {error && <p style={{ color: '#b91c1c', fontSize: 13, margin: 0 }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Add Review'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -677,6 +841,8 @@ function SettingsTab() {
     announcement_banner: 'Free delivery on orders over Rs 3,000 · Dermatologist-reviewed formulas',
     whatsapp_number: '',
     contact_email: '',
+    instagram_url: '',
+    tiktok_url: '',
   };
 
   const [values, setValues] = useState(DEFAULTS);
@@ -989,6 +1155,32 @@ function SettingsTab() {
           <div className="sfield">
             <label>Contact email</label>
             <input type="email" value={values.contact_email} onChange={e => set('contact_email', e.target.value)} placeholder="hello@dreamproducts.com" />
+          </div>
+        </div>
+      </div>
+
+      {/* Social Media */}
+      <div className="settings-section">
+        <p className="settings-section-title">📱 Social Media</p>
+        <p className="shint" style={{ marginBottom: 16 }}>Links appear in the footer on your storefront. Leave blank to hide.</p>
+        <div className="settings-grid">
+          <div className="sfield">
+            <label>Instagram URL</label>
+            <input
+              type="url"
+              value={values.instagram_url}
+              onChange={e => set('instagram_url', e.target.value)}
+              placeholder="https://instagram.com/yourhandle"
+            />
+          </div>
+          <div className="sfield">
+            <label>TikTok URL</label>
+            <input
+              type="url"
+              value={values.tiktok_url}
+              onChange={e => set('tiktok_url', e.target.value)}
+              placeholder="https://tiktok.com/@yourhandle"
+            />
           </div>
         </div>
       </div>

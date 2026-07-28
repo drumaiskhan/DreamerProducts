@@ -51,6 +51,25 @@ const upload = multer({
   },
 });
 
+// Admin review upload — graceful without Cloudinary (images skipped if not configured)
+const adminReviewUpload = multer({
+  storage: cloudinaryConfigured
+    ? new CloudinaryStorage({
+        cloudinary,
+        params: {
+          folder: 'dreamer-reviews',
+          allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+          transformation: [{ width: 800, quality: 'auto', fetch_format: 'auto' }],
+        },
+      })
+    : multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
+    cb(null, ok);
+  },
+});
+
 // ─── Email (optional) ─────────────────────────────────────────
 function createMailer() {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return null;
@@ -484,6 +503,34 @@ app.put('/api/admin/reviews/:id/reply', requireAdmin, async (req, res) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Review not found' });
     res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Create review as admin (auto-approved by default, supports image upload)
+app.post('/api/admin/reviews', requireAdmin, adminReviewUpload.array('images', 5), async (req, res) => {
+  try {
+    const { customer_name, email, rating, title, body, product_id, approved } = req.body;
+    if (!customer_name || !rating || !body)
+      return res.status(400).json({ error: 'Name, rating and review text are required' });
+    if (parseInt(rating) < 1 || parseInt(rating) > 5)
+      return res.status(400).json({ error: 'Rating must be 1–5' });
+    const isApproved = approved !== 'false' && approved !== false;
+    const { rows } = await pool.query(
+      `INSERT INTO reviews (customer_name, email, rating, title, body, product_id, approved, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [customer_name, email || null, parseInt(rating), title || null, body,
+       product_id ? parseInt(product_id) : null, isApproved, isApproved ? 'approved' : 'pending']
+    );
+    const review = rows[0];
+    if (cloudinaryConfigured && req.files && req.files.length > 0) {
+      for (let i = 0; i < req.files.length; i++) {
+        await pool.query(
+          'INSERT INTO review_images (review_id, image_url, sort_order) VALUES ($1,$2,$3)',
+          [review.id, req.files[i].path, i]
+        );
+      }
+    }
+    res.status(201).json(review);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

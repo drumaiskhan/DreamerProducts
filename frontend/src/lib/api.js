@@ -167,6 +167,11 @@ export const api = {
       body: JSON.stringify({ ids, action })
     }).then(handle),
 
+  createAdminReview: (formData) =>
+    fetch(`${API_BASE}/api/admin/reviews`, {
+      method: 'POST', headers: adminHeaders(), body: formData
+    }).then(handle),
+
   // ── Contact ──
   sendContactMessage: (data) =>
     fetch(`${API_BASE}/api/contact`, {
