@@ -411,7 +411,7 @@ export default function ProductReviews({ productId }) {
         /* Overview */
         .rv-overview {
           display: flex; gap: 40px; align-items: flex-start;
-          background: #fff; border: 1px solid var(--border);
+          background: var(--card); border: 1px solid var(--border);
           border-radius: var(--radius); padding: 28px 32px;
           margin-bottom: 24px;
         }
@@ -438,7 +438,7 @@ export default function ProductReviews({ productId }) {
         }
         .rv-filters { display: flex; flex-wrap: wrap; gap: 6px; }
         .rv-filter-btn {
-          background: #fff; border: 1.5px solid var(--border);
+          background: var(--card); border: 1.5px solid var(--border);
           border-radius: 999px; padding: 5px 14px;
           font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500;
           color: var(--ink-soft); cursor: pointer;
@@ -449,14 +449,14 @@ export default function ProductReviews({ productId }) {
         .rv-sort-select {
           border: 1.5px solid var(--border); border-radius: 8px;
           padding: 6px 12px; font-family: 'Inter', sans-serif;
-          font-size: 12px; color: var(--ink); background: #fff;
+          font-size: 12px; color: var(--ink); background: var(--card);
           cursor: pointer;
         }
 
         /* Review cards */
         .rv-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px; }
         .rv-card {
-          background: #fff; border: 1px solid var(--border);
+          background: var(--card); border: 1px solid var(--border);
           border-radius: var(--radius); padding: 24px;
           transition: box-shadow .2s;
         }
@@ -546,7 +546,7 @@ export default function ProductReviews({ productId }) {
 
         /* Review form */
         .rv-form {
-          background: #fff; border: 1px solid var(--border);
+          background: var(--card); border: 1px solid var(--border);
           border-radius: var(--radius); padding: 32px;
           animation: fadeInUp .35s var(--ease-out) both;
         }

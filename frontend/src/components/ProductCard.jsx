@@ -155,7 +155,7 @@ export default function ProductCard({ product, onEnquire }) {
 
       <style>{`
         .card {
-          background: #fff;
+          background: var(--card);
           border: 1px solid var(--border);
           border-radius: var(--radius);
           overflow: hidden;

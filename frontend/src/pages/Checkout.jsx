@@ -174,7 +174,7 @@ export default function Checkout() {
 
         <style>{`
           .co-success-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--twilight);padding:24px;}
-          .co-success-card{background:#fff;border-radius:24px;padding:44px 40px;max-width:480px;width:100%;text-align:center;box-shadow:0 28px 80px rgba(0,0,0,.35);}
+          .co-success-card{background:var(--card);border-radius:24px;padding:44px 40px;max-width:480px;width:100%;text-align:center;box-shadow:0 28px 80px rgba(0,0,0,.35);}
           .co-success-icon{width:64px;height:64px;border-radius:50%;background:#e6f4ea;color:#2d7a3a;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
           .co-success-card h2{font-size:28px;margin-bottom:10px;}
           .co-success-sub{font-size:15px;color:var(--ink-soft);line-height:1.6;margin:0 0 12px;}
@@ -500,7 +500,7 @@ export default function Checkout() {
         .co-bill-total .display { font-size:22px;color:var(--cream); }
 
         /* Form */
-        .co-form { padding:52px 44px;background:#fff;display:flex;flex-direction:column;gap:0;overflow-y:auto; }
+        .co-form { padding:52px 44px;background:var(--card);display:flex;flex-direction:column;gap:0;overflow-y:auto; }
         .co-form-title { font-size:24px;margin-bottom:22px; }
         .co-section-label { font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 14px; }
         .co-auth-hint { background:#f0f4ff;border-radius:10px;padding:10px 14px;font-size:13.5px;color:var(--ink-soft);margin-bottom:20px; }
@@ -510,7 +510,7 @@ export default function Checkout() {
         .field { display:flex;flex-direction:column;gap:6px;margin-bottom:14px; }
         .field label { font-size:12.5px;font-weight:700;color:var(--ink);letter-spacing:.02em; }
         .field input,.field textarea { font-size:14px;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;outline:none;background:var(--cream);transition:border-color .15s,box-shadow .15s;resize:none;color:var(--ink); }
-        .field input:focus,.field textarea:focus { border-color:var(--forest);background:#fff;box-shadow:0 0 0 3px rgba(27,58,45,.08); }
+        .field input:focus,.field textarea:focus { border-color:var(--forest);background:var(--card);box-shadow:0 0 0 3px rgba(27,58,45,.08); }
         .co-opt { font-weight:400;color:var(--ink-soft);font-size:11px; }
 
         /* Payment methods */

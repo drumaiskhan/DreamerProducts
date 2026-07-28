@@ -76,10 +76,6 @@ export const api = {
       body: JSON.stringify(data)
     }).then(handle),
 
-  // ── Orders (admin) ──
-  getAdminOrders: () =>
-    fetch(`${API_BASE}/api/admin/orders`, { headers: adminHeaders() }).then(handle),
-
   updateOrderStatus: (id, status) =>
     fetch(`${API_BASE}/api/admin/orders/${id}/status`, {
       method: 'PUT', headers: { ...json(), ...adminHeaders() },

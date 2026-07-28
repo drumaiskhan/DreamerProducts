@@ -1185,7 +1185,38 @@ function SettingsTab() {
     contact_email: '',
     instagram_url: '',
     tiktok_url: '',
+    // ── Theme ──
+    theme_bg:               '#FAF8F5',
+    theme_card:             '#FFFFFF',
+    theme_primary:          '#1C1C1C',
+    theme_secondary:        '#6B6B6B',
+    theme_accent:           '#D9B99B',
+    theme_accent_dark:      '#C4A080',
+    theme_border:           '#ECECEC',
+    theme_heading_font:     'Playfair Display',
+    theme_body_font:        'Inter',
+    theme_motion_style:     'normal',
+    theme_page_transitions: 'true',
+    theme_hover_cards:      'true',
+    theme_reduced_motion:   'false',
+    theme_radius:           'soft',
+    theme_shadow:           'soft',
   };
+
+  const THEME_COLOR_DEFAULTS = {
+    theme_bg:          '#FAF8F5',
+    theme_card:        '#FFFFFF',
+    theme_primary:     '#1C1C1C',
+    theme_secondary:   '#6B6B6B',
+    theme_accent:      '#D9B99B',
+    theme_accent_dark: '#C4A080',
+    theme_border:      '#ECECEC',
+  };
+
+  const FONT_OPTIONS = [
+    'Playfair Display', 'Cormorant Garamond', 'Lora', 'DM Serif Display',
+    'Inter', 'DM Sans', 'Poppins', 'Montserrat',
+  ];
 
   const [values, setValues] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
@@ -1224,6 +1255,22 @@ function SettingsTab() {
   }, []);
 
   function set(key, val) { setValues(v => ({ ...v, [key]: val })); setSaved(false); }
+
+  function resetTheme() {
+    setValues(v => ({
+      ...v,
+      ...THEME_COLOR_DEFAULTS,
+      theme_heading_font: 'Playfair Display',
+      theme_body_font: 'Inter',
+      theme_motion_style: 'normal',
+      theme_page_transitions: 'true',
+      theme_hover_cards: 'true',
+      theme_reduced_motion: 'false',
+      theme_radius: 'soft',
+      theme_shadow: 'soft',
+    }));
+    setSaved(false);
+  }
 
   function handleFileChange(key) {
     return (e) => {
@@ -1523,6 +1570,155 @@ function SettingsTab() {
               onChange={e => set('tiktok_url', e.target.value)}
               placeholder="https://tiktok.com/@yourhandle"
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Theme */}
+      <div className="settings-section">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <p className="settings-section-title" style={{ margin: 0 }}>🎨 Theme — Colours, Fonts & Motion</p>
+          <button type="button" onClick={resetTheme}
+            style={{ fontSize: 12, fontWeight: 600, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '5px 14px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            ↺ Reset to Default
+          </button>
+        </div>
+
+        {/* Colours */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Colours</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14, marginBottom: 24 }}>
+          {[
+            { key: 'theme_bg',          label: 'Background' },
+            { key: 'theme_card',        label: 'Card' },
+            { key: 'theme_primary',     label: 'Primary text' },
+            { key: 'theme_secondary',   label: 'Secondary text' },
+            { key: 'theme_accent',      label: 'Accent' },
+            { key: 'theme_accent_dark', label: 'Accent dark' },
+            { key: 'theme_border',      label: 'Border' },
+          ].map(({ key, label }) => (
+            <div key={key} className="sfield" style={{ gap: 8 }}>
+              <label style={{ marginBottom: 4 }}>{label}</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="color"
+                  value={values[key] || '#000000'}
+                  onChange={e => set(key, e.target.value)}
+                  style={{ width: 36, height: 36, border: '1.5px solid var(--border)', borderRadius: 8, padding: 2, cursor: 'pointer', background: 'none' }}
+                />
+                <input
+                  type="text"
+                  value={values[key] || ''}
+                  onChange={e => set(key, e.target.value)}
+                  placeholder="#FAF8F5"
+                  style={{ fontSize: 12, padding: '6px 10px', border: '1.5px solid var(--border)', borderRadius: 8, fontFamily: 'inherit', width: 90, outline: 'none' }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Live colour preview */}
+        <div style={{ marginBottom: 24 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 10px' }}>Live Preview</p>
+          <div style={{ background: values.theme_bg || '#FAF8F5', border: `1px solid ${values.theme_border || '#ECECEC'}`, borderRadius: 12, padding: 20, maxWidth: 320 }}>
+            <p style={{ fontFamily: `'${values.theme_heading_font || 'Playfair Display'}', serif`, fontSize: 18, fontWeight: 600, color: values.theme_primary || '#1C1C1C', margin: '0 0 4px' }}>
+              Glow Serum
+            </p>
+            <p style={{ fontFamily: `'${values.theme_body_font || 'Inter'}', sans-serif`, fontSize: 12, color: values.theme_secondary || '#6B6B6B', margin: '0 0 12px' }}>
+              Brightening formula for all skin types
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: `'${values.theme_heading_font || 'Playfair Display'}', serif`, fontSize: 16, fontWeight: 700, color: values.theme_primary || '#1C1C1C' }}>Rs 2,400</span>
+              <button type="button" style={{ background: values.theme_primary || '#1C1C1C', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 16px', fontSize: 11, fontWeight: 600, cursor: 'default', fontFamily: `'${values.theme_body_font || 'Inter'}', sans-serif` }}>
+                Add to Cart
+              </button>
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${values.theme_border || '#ECECEC'}`, display: 'flex', gap: 8 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: values.theme_accent || '#D9B99B', marginTop: 2 }} />
+              <span style={{ fontSize: 11, color: values.theme_secondary || '#6B6B6B', fontFamily: `'${values.theme_body_font || 'Inter'}', sans-serif` }}>Accent colour sample</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Fonts */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Fonts</p>
+        <div className="settings-grid" style={{ marginBottom: 24 }}>
+          <div className="sfield">
+            <label>Heading font</label>
+            <select value={values.theme_heading_font} onChange={e => set('theme_heading_font', e.target.value)}
+              style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: `'${values.theme_heading_font}', serif`, background: '#fff', cursor: 'pointer', outline: 'none' }}>
+              {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', serif` }}>{f}</option>)}
+            </select>
+            <p className="shint" style={{ fontFamily: `'${values.theme_heading_font}', serif`, fontSize: 15, color: 'var(--ink)', margin: '6px 0 0' }}>
+              The quick brown fox — {values.theme_heading_font}
+            </p>
+          </div>
+          <div className="sfield">
+            <label>Body font</label>
+            <select value={values.theme_body_font} onChange={e => set('theme_body_font', e.target.value)}
+              style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: `'${values.theme_body_font}', sans-serif`, background: '#fff', cursor: 'pointer', outline: 'none' }}>
+              {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>)}
+            </select>
+            <p className="shint" style={{ fontFamily: `'${values.theme_body_font}', sans-serif`, fontSize: 14, color: 'var(--ink-soft)', margin: '6px 0 0' }}>
+              Body text sample — {values.theme_body_font}
+            </p>
+          </div>
+        </div>
+
+        {/* Motion */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Animation & Motion</p>
+        <div className="settings-grid" style={{ marginBottom: 16 }}>
+          <div className="sfield">
+            <label>Animation style</label>
+            <select value={values.theme_motion_style} onChange={e => set('theme_motion_style', e.target.value)}
+              style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: 'inherit', background: '#fff', cursor: 'pointer', outline: 'none' }}>
+              <option value="subtle">Subtle — quick and minimal</option>
+              <option value="normal">Normal — balanced (default)</option>
+              <option value="playful">Playful — slow and expressive</option>
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+          {[
+            { key: 'theme_page_transitions', label: 'Page transition animation', hint: 'Fade-up effect when navigating between pages' },
+            { key: 'theme_hover_cards',      label: 'Product card hover lift', hint: 'Cards lift and show overlay on mouse hover' },
+            { key: 'theme_reduced_motion',   label: 'Reduced motion mode (overrides all above)', hint: "Disables all non-essential animations \u2014 also respects the visitor\u2019s OS accessibility setting" },
+          ].map(({ key, label, hint }) => (
+            <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={key === 'theme_reduced_motion' ? values[key] === 'true' : values[key] !== 'false'}
+                onChange={e => set(key, e.target.checked ? (key === 'theme_reduced_motion' ? 'true' : 'true') : (key === 'theme_reduced_motion' ? 'false' : 'false'))}
+                style={{ width: 16, height: 16, cursor: 'pointer', marginTop: 2, accentColor: 'var(--forest)', flexShrink: 0 }}
+              />
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{label}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--ink-soft)' }}>{hint}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        {/* Radius & Shadow */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Shape & Depth</p>
+        <div className="settings-grid">
+          <div className="sfield">
+            <label>Corner roundness</label>
+            <select value={values.theme_radius} onChange={e => set('theme_radius', e.target.value)}
+              style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: 'inherit', background: '#fff', cursor: 'pointer', outline: 'none' }}>
+              <option value="sharp">Sharp — 4 px corners</option>
+              <option value="soft">Soft — 16 px corners (default)</option>
+              <option value="rounded">Rounded — 24 px corners</option>
+            </select>
+          </div>
+          <div className="sfield">
+            <label>Shadow intensity</label>
+            <select value={values.theme_shadow} onChange={e => set('theme_shadow', e.target.value)}
+              style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: 'inherit', background: '#fff', cursor: 'pointer', outline: 'none' }}>
+              <option value="flat">Flat — minimal shadows</option>
+              <option value="soft">Soft — gentle depth (default)</option>
+              <option value="elevated">Elevated — prominent shadows</option>
+            </select>
           </div>
         </div>
       </div>

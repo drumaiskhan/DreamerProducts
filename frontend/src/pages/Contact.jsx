@@ -209,7 +209,7 @@ export default function Contact() {
         /* Info cards */
         .contact-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
         .ccard {
-          background: #fff; border: 1px solid var(--border); border-radius: 18px;
+          background: var(--card); border: 1px solid var(--border); border-radius: 18px;
           padding: 24px 22px; display: flex; align-items: flex-start; gap: 16px;
           text-decoration: none; color: inherit;
           transition: box-shadow .22s, transform .22s, border-color .22s;
@@ -229,7 +229,7 @@ export default function Contact() {
         .contact-form-wrap { display: flex; justify-content: center; }
         .contact-form-card {
           width: 100%; max-width: 640px;
-          background: #fff; border: 1px solid var(--border); border-radius: 24px;
+          background: var(--card); border: 1px solid var(--border); border-radius: 24px;
           padding: 40px 40px 44px;
           box-shadow: 0 4px 24px rgba(43,31,61,.06);
         }
@@ -252,7 +252,7 @@ export default function Contact() {
         .cf-field input:focus, .cf-field textarea:focus {
           border-color: var(--dusty-rose);
           box-shadow: 0 0 0 3px rgba(190,130,150,.12);
-          background: #fff;
+          background: var(--card);
         }
         .cf-error {
           font-size: 13.5px; color: #b91c1c;

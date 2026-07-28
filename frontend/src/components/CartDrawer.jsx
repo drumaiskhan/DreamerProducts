@@ -132,7 +132,7 @@ export default function CartDrawer({ open, onClose }) {
 
     width: min(420px, 92vw);
 
-    background: #fff;
+    background: var(--card);
     z-index: 60;
 
     display: flex;

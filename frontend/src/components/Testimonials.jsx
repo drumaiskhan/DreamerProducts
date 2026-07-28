@@ -142,7 +142,7 @@ export default function Testimonials() {
       </div>
 
       <style>{`
-        .testi-section { padding: 96px 0; background: #fff; }
+        .testi-section { padding: 96px 0; background: var(--card); }
         .testi-header {
           text-align: center; margin-bottom: 52px;
           opacity: 0; transform: translateY(18px);
@@ -197,7 +197,7 @@ export default function Testimonials() {
 
         .testi-form {
           max-width: 580px; margin: 36px auto 0;
-          background: #fff; border: 1px solid var(--border);
+          background: var(--card); border: 1px solid var(--border);
           border-radius: var(--radius); padding: 32px;
         }
         .testi-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

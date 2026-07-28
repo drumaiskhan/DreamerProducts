@@ -172,7 +172,7 @@ export default function MyOrders() {
         .mo-empty { text-align: center; padding: 80px 20px; color: var(--ink-soft); }
         .mo-empty-icon { font-size: 56px; margin-bottom: 12px; }
         .mo-list { display: flex; flex-direction: column; gap: 12px; }
-        .mo-card { background: #fff; border-radius: 14px; border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow-sm); transition: box-shadow .18s; }
+        .mo-card { background: var(--card); border-radius: 14px; border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow-sm); transition: box-shadow .18s; }
         .mo-card:hover { box-shadow: var(--shadow); }
         .mo-card-head { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: none; border: none; cursor: pointer; font-family: inherit; gap: 12px; flex-wrap: wrap; }
         .mo-card-left { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }

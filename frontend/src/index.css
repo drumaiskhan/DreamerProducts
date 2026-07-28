@@ -11,6 +11,10 @@
   --border:      #ECECEC;
   --border-dark: #D8D8D8;
 
+  /* ── Font families (overridable via theme) ── */
+  --heading-font: 'Playfair Display', serif;
+  --body-font:    'Inter', sans-serif;
+
   /* ── Keep forest/sage for brand identity ── */
   --forest:      #1B3A2D;
   --forest-soft: #2A5040;
@@ -57,7 +61,7 @@ html, body, #root { margin: 0; padding: 0; min-height: 100%; }
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--body-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-size: 15px;
@@ -66,7 +70,7 @@ body {
 }
 
 h1, h2, h3, h4, .display {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--heading-font);
   font-weight: 500;
   letter-spacing: -0.01em;
   margin: 0;
@@ -334,4 +338,36 @@ img { max-width: 100%; display: block; }
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+/* ── Admin-controlled motion overrides ────────────────── */
+/* Page transitions off */
+[data-no-page-transition] .page-enter {
+  animation: none !important;
+}
+
+/* Hover lift on cards off */
+[data-no-hover-cards] .card:hover {
+  transform: none !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+[data-no-hover-cards] .card:hover .card-image img {
+  transform: none !important;
+}
+[data-no-hover-cards] .card:hover .card-overlay {
+  opacity: 0 !important;
+  transform: translateY(6px) !important;
+}
+[data-no-hover-cards] .card:hover .img-nav {
+  opacity: 0 !important;
+}
+
+/* Admin reduced motion (in addition to OS preference) */
+[data-reduced-motion] .page-enter,
+[data-reduced-motion] .animate-in {
+  animation: none !important;
+}
+[data-reduced-motion] *, [data-reduced-motion] *::before, [data-reduced-motion] *::after {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
 }
