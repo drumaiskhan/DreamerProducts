@@ -1,0 +1,183 @@
+# Admin-Controlled Theme, Colours, Fonts & Animations
+
+You are a senior full-stack developer. Add a "Theme" section to the existing
+admin Settings tab that lets the admin change site colours, fonts, and
+animation behavior — all applied live on the storefront — WITHOUT breaking
+any existing functionality, layout, or the current `site_settings`
+key-value pattern already used in `db.js` / `server.js`.
+
+---
+
+# 1. How It Should Work
+
+- Reuse the existing `site_settings` table (key/value) — do not create a
+  separate table unless truly necessary.
+- All colours currently live as CSS variables in `frontend/src/index.css`
+  under `:root` (e.g. `--bg`, `--card`, `--primary`, `--secondary`,
+  `--accent`, `--accent-dark`, `--border`, `--radius`, `--shadow`).
+- On app load, fetch theme settings from `GET /api/settings` (already
+  exists) and apply them by setting CSS custom properties on
+  `document.documentElement.style`, overriding the defaults in `index.css`.
+  If no theme override is saved, fall back to the existing hardcoded
+  defaults — nothing should look different for a fresh install.
+
+---
+
+# 2. New Admin Settings: Colours (expanded)
+
+Add a "Theme" sub-section inside the existing Settings tab
+(`AdminDashboard.jsx` → `SettingsTab`) with colour pickers
+(`<input type="color">` or a swatch UI) for:
+
+- Background colour (`--bg`)
+- Card / surface colour (`--card`)
+- Primary text colour (`--primary`)
+- Secondary text colour (`--secondary`)
+- Muted/tertiary text colour (`--ink-muted`)
+- Accent colour (`--accent`)
+- Accent-dark / hover accent (`--accent-dark`)
+- Accent-pale / soft background tint (`--gold-pale` or equivalent)
+- Border colour (`--border`)
+- Border-dark / divider colour (`--border-dark`)
+- Success colour (for toasts, in-stock badges, order-confirmed states)
+- Warning colour (for low-stock badges, pending states)
+- Error/danger colour (for out-of-stock, delete actions, form errors)
+- Button text colour (in case a dark accent needs light text, or vice versa)
+
+Add **preset colour palettes** the admin can pick with one click instead of
+manually choosing every value (e.g. "Sage & Forest" [current default],
+"Rose & Blush", "Midnight & Gold", "Terracotta & Cream", "Monochrome",
+"Ocean & Sand") — each preset just fills in all the colour fields above,
+which the admin can still fine-tune afterward.
+
+Show a live preview panel inside the admin (mock hero snippet, product
+card, and button) that updates instantly as colours change, before saving.
+
+Include a "Reset to Default" button that restores the original palette
+already hardcoded in `index.css`.
+
+---
+
+# 3. New Admin Settings: Fonts (expanded)
+
+Add separate pickers for:
+
+- Heading / display font
+- Body font
+- Button / UI font
+- (Optional) Accent font for things like price tags or badges
+
+Offer a **much larger curated list** of Google Fonts, grouped by style so
+the admin isn't overwhelmed:
+
+**Serif / Editorial (for headings)**
+Playfair Display, Cormorant Garamond, Lora, Libre Baskerville, DM Serif
+Display, Fraunces, Bodoni Moda, Prata, Marcellus
+
+**Sans-Serif / Modern (for body & headings)**
+Inter, DM Sans, Poppins, Montserrat, Work Sans, Manrope, Sora, Outfit,
+Plus Jakarta Sans, Urbanist
+
+**Elegant Script / Display (for accents, logos, hero eyebrow text)**
+Cormorant Upright, Italiana, Cardo, Marcellus SC, Petit Formal Script
+(use sparingly, flag as "accent only" in the UI)
+
+**Classic / Neutral (safe fallback body fonts)**
+Roboto, Open Sans, Nunito Sans, Source Sans 3, Karla
+
+Implementation:
+- Store the selected font name(s) as settings keys, e.g.
+  `font_heading`, `font_body`, `font_button`, `font_accent`
+- Dynamically inject the correct Google Fonts `<link>` (or `@import`) tags
+  on app load based on saved settings — only load fonts actually in use,
+  don't load the whole library
+- Apply via CSS variables (`--font-heading`, `--font-body`, `--font-button`)
+  that existing typography rules reference
+- Show a live font preview (sample heading + paragraph) in the admin as
+  each dropdown changes, before saving
+- "Reset to Default" restores Playfair Display / Inter (current defaults)
+
+---
+
+# 4. New Admin Settings: Animation & Motion (expanded)
+
+Add controls for:
+
+- **Overall animation style**: `none` / `subtle` / `normal` / `playful` —
+  scales duration and easing curves across all existing effects
+- **Animation speed**: `slow` / `normal` / `fast` (independent multiplier
+  on top of style, maps to `--transition-speed`)
+- **Page transition style**: `none` / `fade` / `slide` / `fade-up` (maps
+  to whatever `PageTransition.jsx` currently supports, extend if needed)
+- **Product card hover effect**: `none` / `lift` / `zoom` / `lift+zoom`
+- **Scroll-reveal animation**: on/off toggle for fade-up-on-scroll effects
+  used across homepage sections (Hero, CategoryShowcase, Testimonials,
+  BrandStory, Newsletter)
+- **Button interaction style**: `none` / `subtle scale` / `ripple`
+- **Loading style**: `spinner` / `skeleton` / `pulse` for loading states
+- **Reduced motion mode**: disables all non-essential animation for
+  accessibility — this must also automatically respect the user's OS
+  `prefers-reduced-motion` setting regardless of the admin's chosen setting
+
+Implementation:
+- Add CSS variables for animation duration/easing (e.g.
+  `--transition-speed`, `--ease`, `--hover-scale`) that existing
+  transition/animation rules reference or get refactored to use
+- Do not change current visual behavior when all settings are left at
+  their defaults
+
+---
+
+# 5. Radius & Shadow (expanded)
+
+- **Corner roundness**: `sharp` / `soft` / `rounded` / `pill` (maps to
+  `--radius`, `--radius-sm`)
+- **Shadow intensity**: `flat` / `soft` / `elevated` / `dramatic` (maps to
+  `--shadow`, `--shadow-sm`, `--shadow-lg`)
+- **Card border style**: `none` / `hairline` / `bold` — toggles whether
+  cards use a visible border vs. shadow-only separation
+
+---
+
+# 6. Layout Density (nice-to-have addition)
+
+- **Spacing density**: `compact` / `comfortable` / `spacious` — adjusts a
+  global spacing scale variable (e.g. `--space-unit`) used across section
+  padding and card gaps, so the whole site can feel tighter or airier
+  without redesigning every component
+
+---
+
+# 7. Persistence & API
+
+- Save all theme values via the existing `PUT /api/admin/settings`
+  endpoint (extend the payload, don't replace it)
+- Extend `GET /api/settings` (public) to also return all theme keys so the
+  storefront can apply them on load without needing admin auth
+- Ensure saving theme settings does NOT overwrite unrelated settings
+  already stored (hero text, trust badges, category labels, delivery
+  charge, etc.) — merge, don't replace
+- Group all new keys under a clear naming convention (e.g. `theme_bg`,
+  `theme_accent`, `font_heading`, `anim_style`, `radius_style`,
+  `shadow_style`, `density`) so they're easy to find and don't collide
+  with existing setting keys
+
+---
+
+# 8. Constraints
+
+- Do not hardcode new colours/fonts/animation values directly into
+  component files — they must flow through CSS variables set from saved
+  settings.
+- Do not break the existing default look: with no theme settings saved,
+  the site must render exactly as it does today.
+- Do not break any other Settings tab section (Hero, Trust badges,
+  Category labels, Delivery charge, etc.).
+- Changes must apply live across the whole storefront (Home,
+  ProductDetails, Checkout, Contact, etc.) — not just the homepage.
+- All new admin controls must have sensible labels, grouped clearly
+  (Colours / Fonts / Animation / Shape / Layout), and a single top-level
+  "Reset All to Default" button in addition to per-section resets.
+- Test: change every control in admin, save, reload the public site, and
+  confirm each applies correctly and independently. Then reset to default
+  and confirm everything reverts cleanly with no leftover overrides.

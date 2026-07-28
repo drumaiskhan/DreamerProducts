@@ -34,11 +34,13 @@ export default function AdminDashboard() {
   }
 
   const TABS = [
-    { id: 'products', label: '📦 Products' },
-    { id: 'orders',   label: '🛍 Orders' },
-    { id: 'reviews',  label: '💬 Reviews' },
-    { id: 'users',    label: '👤 Users' },
-    { id: 'settings', label: '⚙️ Settings' },
+    { id: 'products',  label: '📦 Products' },
+    { id: 'orders',    label: '🛍 Orders' },
+    { id: 'reviews',   label: '💬 Reviews' },
+    { id: 'users',     label: '👤 Users' },
+    { id: 'coupons',   label: '🎟 Coupons' },
+    { id: 'analytics', label: '📊 Analytics' },
+    { id: 'settings',  label: '⚙️ Settings' },
   ];
 
   return (
@@ -88,11 +90,13 @@ export default function AdminDashboard() {
       </div>
 
       <main className="container dash-main">
-        {tab === 'products' && <ProductsTab navigate={navigate} />}
-        {tab === 'orders'   && <OrdersTab />}
-        {tab === 'reviews'  && <ReviewsTab />}
-        {tab === 'users'    && <UsersTab />}
-        {tab === 'settings' && <SettingsTab />}
+        {tab === 'products'  && <ProductsTab navigate={navigate} />}
+        {tab === 'orders'    && <OrdersTab />}
+        {tab === 'reviews'   && <ReviewsTab />}
+        {tab === 'users'     && <UsersTab />}
+        {tab === 'coupons'   && <CouponsTab />}
+        {tab === 'analytics' && <AnalyticsTab />}
+        {tab === 'settings'  && <SettingsTab />}
       </main>
 
       <style>{`
@@ -321,6 +325,14 @@ function ProductsTab({ navigate }) {
 
 // ─── Orders Tab ────────────────────────────────────────────────
 const ORDER_STATUSES = ['Pending', 'Confirmed', 'Shipped', 'Completed', 'Cancelled'];
+const PAY_STATUSES   = ['pending', 'paid', 'failed', 'refunded'];
+
+const PAY_COLORS = {
+  pending:  { bg: '#fef3c7', color: '#92400e' },
+  paid:     { bg: '#dcfce7', color: '#14532d' },
+  failed:   { bg: '#fee2e2', color: '#991b1b' },
+  refunded: { bg: '#e0e7ff', color: '#3730a3' },
+};
 
 function OrdersTab() {
   const [orders, setOrders] = useState([]);
@@ -331,7 +343,9 @@ function OrdersTab() {
 
   function load() {
     setLoading(true);
-    api.getAdminOrders().then(setOrders).catch(err => setError(err.message)).finally(() => setLoading(false));
+    api.getAdminOrders().then(data => {
+      setOrders(Array.isArray(data) ? data : data.orders || []);
+    }).catch(err => setError(err.message)).finally(() => setLoading(false));
   }
   useEffect(load, []);
 
@@ -339,6 +353,13 @@ function OrdersTab() {
     try {
       const updated = await api.updateOrderStatus(id, status);
       setOrders(prev => prev.map(o => o.id === id ? { ...o, status: updated.status } : o));
+    } catch (err) { alert(err.message); }
+  }
+
+  async function handlePayment(id, payment_status) {
+    try {
+      const updated = await api.updateOrderPayment(id, payment_status);
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, payment_status: updated.payment_status } : o));
     } catch (err) { alert(err.message); }
   }
 
@@ -380,10 +401,11 @@ function OrdersTab() {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>#</th><th>Customer</th><th>Items</th><th>Total</th><th>Date</th><th>Status</th></tr></thead>
+              <thead><tr><th>#</th><th>Customer</th><th>Items</th><th>Total</th><th>Date</th><th>Order Status</th><th>Payment</th></tr></thead>
               <tbody>
                 {filtered.map((o) => {
                   const items = Array.isArray(o.items) ? o.items : JSON.parse(o.items || '[]');
+                  const pc = PAY_COLORS[o.payment_status] || PAY_COLORS.pending;
                   return (
                     <tr key={o.id}>
                       <td style={{ color: 'var(--ink-soft)', fontWeight: 700, fontSize: 13 }}>#{o.id}</td>
@@ -393,6 +415,12 @@ function OrdersTab() {
                         <p className="order-meta">📞 {o.phone}</p>
                         <p className="order-meta">📍 {o.address}, {o.city}</p>
                         {o.notes && <p className="order-meta" style={{ fontStyle: 'italic' }}>"{o.notes}"</p>}
+                        {o.coupon_code && (
+                          <p className="order-meta">🎟 {o.coupon_code} −Rs {Number(o.discount_amount).toLocaleString()}</p>
+                        )}
+                        <p className="order-meta" style={{ textTransform: 'uppercase', fontSize: 11 }}>
+                          {o.payment_method === 'cod' ? '💵 COD' : '💳 Card'}
+                        </p>
                       </td>
                       <td>
                         <div className="order-items-list">
@@ -403,29 +431,27 @@ function OrdersTab() {
                       <td style={{ color: 'var(--ink-soft)', fontSize: 13, whiteSpace: 'nowrap' }}>
                         {new Date(o.created_at).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
-                      <td style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <select className={`status-select status-${o.status}`} value={o.status} onChange={e => handleStatus(o.id, e.target.value)}>
-                          {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <select className={`status-select status-${o.status}`} value={o.status} onChange={e => handleStatus(o.id, e.target.value)}>
+                            {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          {o.status === 'Cancelled' && (
+                            <button
+                              onClick={() => handleDelete(o.id)}
+                              style={{ padding: '4px 8px', fontSize: 12, background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+                            >🗑 Delete</button>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <select
+                          value={o.payment_status || 'pending'}
+                          onChange={e => handlePayment(o.id, e.target.value)}
+                          style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 999, border: '1.5px solid transparent', cursor: 'pointer', fontFamily: 'inherit', outline: 'none', background: pc.bg, color: pc.color }}
+                        >
+                          {PAY_STATUSES.map(s => <option key={s} value={s} style={{ background: '#fff', color: '#000' }}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
                         </select>
-                        {o.status === 'Cancelled' && (
-                          <button
-                            onClick={() => handleDelete(o.id)}
-                            style={{
-                              padding: '4px 8px',
-                              fontSize: '12px',
-                              background: '#fee2e2',
-                              color: '#b91c1c',
-                              border: '1px solid #fca5a5',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                            }}
-                            title="Delete cancelled order"
-                          >
-                            🗑 Delete
-                          </button>
-                        )}
                       </td>
                     </tr>
                   );
@@ -781,6 +807,322 @@ function UsersTab() {
         )
       )}
     </>
+  );
+}
+
+// ─── Coupons Tab ───────────────────────────────────────────────
+function CouponsTab() {
+  const [coupons, setCoupons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  function load() {
+    setLoading(true);
+    api.getAdminCoupons().then(setCoupons).catch(err => setError(err.message)).finally(() => setLoading(false));
+  }
+  useEffect(load, []);
+
+  async function handleDelete(id, code) {
+    if (!confirm(`Delete coupon "${code}"?`)) return;
+    try { await api.deleteCoupon(id); setCoupons(prev => prev.filter(c => c.id !== id)); }
+    catch (err) { alert(err.message); }
+  }
+
+  function openNew() { setEditing(null); setShowForm(true); }
+  function openEdit(c) { setEditing(c); setShowForm(true); }
+
+  return (
+    <>
+      <div className="dash-toolbar">
+        <h1>Coupons <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-soft)' }}>({coupons.length})</span></h1>
+        <button className="btn btn-primary" onClick={openNew}>+ New Coupon</button>
+      </div>
+      {loading && <p className="state-msg">Loading…</p>}
+      {error && <p className="state-msg" style={{ color: '#b91c1c' }}>{error}</p>}
+      {!loading && !error && (
+        coupons.length === 0 ? (
+          <div className="dash-empty">
+            <p className="dash-empty-icon">🎟</p>
+            <p>No coupons yet.</p>
+            <button className="btn btn-primary" onClick={openNew}>Create your first coupon</button>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Min Order</th><th>Usage</th><th>Expiry</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {coupons.map(c => (
+                  <tr key={c.id}>
+                    <td><span style={{ fontWeight: 700, letterSpacing: '.08em', fontSize: 13 }}>{c.code}</span></td>
+                    <td style={{ textTransform: 'capitalize', color: 'var(--ink-soft)', fontSize: 13 }}>{c.type}</td>
+                    <td style={{ fontWeight: 600 }}>
+                      {c.type === 'percent' ? `${c.value}%` : `Rs ${Number(c.value).toLocaleString()}`}
+                      {c.max_discount ? <span style={{ fontSize: 11, color: 'var(--ink-soft)', display: 'block' }}>max Rs {Number(c.max_discount).toLocaleString()}</span> : null}
+                    </td>
+                    <td style={{ color: 'var(--ink-soft)', fontSize: 13 }}>
+                      {Number(c.min_order) > 0 ? `Rs ${Number(c.min_order).toLocaleString()}` : '—'}
+                    </td>
+                    <td style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
+                      {c.used_count}{c.usage_limit ? ` / ${c.usage_limit}` : ' / ∞'}
+                    </td>
+                    <td style={{ fontSize: 13, color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>
+                      {c.expiry ? new Date(c.expiry).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: c.active ? '#dcfce7' : '#fee2e2', color: c.active ? '#14532d' : '#991b1b' }}>
+                        {c.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="row-actions">
+                      <button className="btn-ghost" onClick={() => openEdit(c)}>Edit</button>
+                      <button className="btn-danger" onClick={() => handleDelete(c.id, c.code)}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+      {showForm && (
+        <CouponFormModal coupon={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
+      )}
+    </>
+  );
+}
+
+function CouponFormModal({ coupon, onClose, onSaved }) {
+  const isEdit = !!coupon;
+  const [form, setForm] = useState({
+    code: coupon?.code || '',
+    type: coupon?.type || 'percent',
+    value: coupon?.value || '',
+    min_order: coupon?.min_order || '',
+    max_discount: coupon?.max_discount || '',
+    expiry: coupon?.expiry ? new Date(coupon.expiry).toISOString().slice(0, 10) : '',
+    usage_limit: coupon?.usage_limit || '',
+    active: coupon?.active !== false,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  function setF(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true); setError('');
+    try {
+      const data = {
+        code: form.code.toUpperCase(),
+        type: form.type,
+        value: parseFloat(form.value),
+        min_order: parseFloat(form.min_order || 0),
+        max_discount: form.max_discount ? parseFloat(form.max_discount) : null,
+        expiry: form.expiry || null,
+        usage_limit: form.usage_limit ? parseInt(form.usage_limit) : null,
+        active: form.active,
+      };
+      if (isEdit) await api.updateCoupon(coupon.id, data);
+      else await api.createCoupon(data);
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,.2)' }}>
+        <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{isEdit ? 'Edit Coupon' : 'New Coupon'}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--ink-soft)' }}>✕</button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="sfield">
+            <label>Code *</label>
+            <input value={form.code} onChange={e => setF('code', e.target.value.toUpperCase())} placeholder="e.g. SAVE20" required style={{ letterSpacing: '.08em', fontWeight: 700 }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="sfield">
+              <label>Discount type *</label>
+              <select value={form.type} onChange={e => setF('type', e.target.value)} style={{ fontSize: 14, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontFamily: 'inherit', background: '#fff', cursor: 'pointer', outline: 'none' }}>
+                <option value="percent">Percentage (%)</option>
+                <option value="fixed">Fixed amount (Rs)</option>
+              </select>
+            </div>
+            <div className="sfield">
+              <label>Value * {form.type === 'percent' ? '(%)' : '(Rs)'}</label>
+              <input type="number" min="0" step="0.01" value={form.value} onChange={e => setF('value', e.target.value)} placeholder={form.type === 'percent' ? '20' : '200'} required />
+            </div>
+            <div className="sfield">
+              <label>Min. order (Rs) <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional)</span></label>
+              <input type="number" min="0" value={form.min_order} onChange={e => setF('min_order', e.target.value)} placeholder="0" />
+            </div>
+            {form.type === 'percent' && (
+              <div className="sfield">
+                <label>Max discount (Rs) <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional)</span></label>
+                <input type="number" min="0" value={form.max_discount} onChange={e => setF('max_discount', e.target.value)} placeholder="500" />
+              </div>
+            )}
+            <div className="sfield">
+              <label>Expiry date <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional)</span></label>
+              <input type="date" value={form.expiry} onChange={e => setF('expiry', e.target.value)} />
+            </div>
+            <div className="sfield">
+              <label>Usage limit <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(optional)</span></label>
+              <input type="number" min="1" value={form.usage_limit} onChange={e => setF('usage_limit', e.target.value)} placeholder="∞ unlimited" />
+            </div>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14, userSelect: 'none' }}>
+            <input type="checkbox" checked={form.active} onChange={e => setF('active', e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--forest)' }} />
+            Active (coupon can be used)
+          </label>
+          {error && <p style={{ color: '#b91c1c', fontSize: 13, margin: 0 }}>{error}</p>}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : isEdit ? 'Update' : 'Create'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Analytics Tab ─────────────────────────────────────────────
+function AnalyticsTab() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [days, setDays] = useState(30);
+
+  useEffect(() => {
+    setLoading(true);
+    api.getAnalytics(days)
+      .then(setData)
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [days]);
+
+  function MiniChart({ data: rows }) {
+    if (!rows || rows.length === 0) return <p style={{ color: 'var(--ink-soft)', fontSize: 13 }}>No data for this period.</p>;
+    const maxRev = Math.max(...rows.map(r => parseFloat(r.revenue) || 0), 1);
+    return (
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 80, padding: '0 4px' }}>
+        {rows.map((r, i) => {
+          const h = Math.max(4, Math.round(((parseFloat(r.revenue) || 0) / maxRev) * 76));
+          return (
+            <div key={i} title={`${r.date}: Rs ${Number(r.revenue).toLocaleString()} · ${r.orders} order${r.orders !== 1 ? 's' : ''}`}
+              style={{ flex: 1, minWidth: 4, height: h, background: 'var(--forest)', borderRadius: '3px 3px 0 0', opacity: 0.8, cursor: 'default', transition: 'opacity .15s' }}
+              onMouseOver={e => e.target.style.opacity = 1}
+              onMouseOut={e => e.target.style.opacity = 0.8}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="dash-toolbar">
+        <h1>Analytics</h1>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {[7, 30, 90].map(d => (
+            <button key={d} onClick={() => setDays(d)}
+              style={{ fontSize: 12, fontWeight: days === d ? 700 : 500, padding: '6px 14px', borderRadius: 999, border: '1.5px solid var(--border)', background: days === d ? 'var(--forest)' : '#fff', color: days === d ? '#fff' : 'var(--ink-soft)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              {d}d
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading && <p className="state-msg">Loading…</p>}
+      {error && <p className="state-msg" style={{ color: '#b91c1c' }}>{error}</p>}
+
+      {!loading && !error && data && (
+        <>
+          {/* KPI cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
+            <AnalyticsCard label="Total Revenue" value={`Rs ${Number(data.total_revenue).toLocaleString()}`} color="#0369A1" />
+            <AnalyticsCard label="Total Orders" value={data.total_orders} color="#1A7F64" />
+            <AnalyticsCard label="Avg. Order Value" value={`Rs ${Number(data.avg_order_value).toLocaleString()}`} color="#6D48E5" />
+          </div>
+
+          {/* Revenue chart */}
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid var(--border)', padding: '22px 24px', marginBottom: 24 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>Revenue — last {days} days</p>
+            <MiniChart data={data.revenue_by_day} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+              {data.revenue_by_day.length > 0 && (
+                <>
+                  <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{data.revenue_by_day[0]?.date}</span>
+                  <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{data.revenue_by_day[data.revenue_by_day.length - 1]?.date}</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+            {/* Top products */}
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid var(--border)', padding: '20px 22px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>🏆 Top Selling Products</p>
+              {data.top_products.length === 0
+                ? <p style={{ color: 'var(--ink-soft)', fontSize: 13 }}>No sales data yet.</p>
+                : data.top_products.map((p, i) => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: i < data.top_products.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', width: 18 }}>#{i + 1}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
+                      <p style={{ fontSize: 11, color: 'var(--ink-soft)', margin: '2px 0 0', textTransform: 'capitalize' }}>{p.category}</p>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, margin: 0 }}>{p.total_sold} sold</p>
+                      <p style={{ fontSize: 11, color: 'var(--ink-soft)', margin: '2px 0 0' }}>Rs {Number(p.total_revenue).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+
+            {/* Low stock */}
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid var(--border)', padding: '20px 22px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>⚠️ Low / Out of Stock</p>
+              {data.low_stock.length === 0
+                ? <p style={{ color: '#14532d', fontSize: 13 }}>✓ All products are well stocked.</p>
+                : data.low_stock.map(p => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>{p.name}</p>
+                      <p style={{ fontSize: 11, color: 'var(--ink-soft)', margin: '2px 0 0', textTransform: 'capitalize' }}>{p.category}</p>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999,
+                      background: p.stock === 0 ? '#fee2e2' : '#fef3c7',
+                      color: p.stock === 0 ? '#991b1b' : '#92400e',
+                    }}>
+                      {p.stock === 0 ? 'Out of stock' : `${p.stock} left`}
+                    </span>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function AnalyticsCard({ label, value, color }) {
+  return (
+    <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 22px' }}>
+      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink-soft)', margin: '0 0 8px' }}>{label}</p>
+      <p style={{ fontSize: 26, fontWeight: 700, color, margin: 0, lineHeight: 1 }}>{value}</p>
+    </div>
   );
 }
 

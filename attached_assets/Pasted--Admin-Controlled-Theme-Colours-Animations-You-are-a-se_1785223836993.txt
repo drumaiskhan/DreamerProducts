@@ -1,0 +1,116 @@
+# Admin-Controlled Theme, Colours & Animations
+
+You are a senior full-stack developer. Add a "Theme" section to the existing
+admin Settings tab that lets the admin change site colours, fonts, and
+animation behavior — all applied live on the storefront — WITHOUT breaking
+any existing functionality, layout, or the current `site_settings`
+key-value pattern already used in `db.js` / `server.js`.
+
+---
+
+# 1. How It Should Work
+
+- Reuse the existing `site_settings` table (key/value) — do not create a
+  separate table unless truly necessary.
+- All colours currently live as CSS variables in `frontend/src/index.css`
+  under `:root` (e.g. `--bg`, `--card`, `--primary`, `--secondary`,
+  `--accent`, `--accent-dark`, `--border`, `--radius`, `--shadow`).
+- On app load, fetch theme settings from `GET /api/settings` (already
+  exists) and apply them by setting CSS custom properties on `document.documentElement.style`,
+  overriding the defaults in `index.css`. If no theme override is saved,
+  fall back to the existing hardcoded defaults — nothing should look
+  different for a fresh install.
+
+---
+
+# 2. New Admin Settings: Colours
+
+Add a new "Theme" sub-section inside the existing Settings tab
+(`AdminDashboard.jsx` → `SettingsTab`) with a colour picker (native
+`<input type="color">` or a small swatch UI) for:
+
+- Background colour (`--bg`)
+- Card colour (`--card`)
+- Primary text colour (`--primary`)
+- Secondary text colour (`--secondary`)
+- Accent colour (`--accent`) + accent-dark (`--accent-dark`)
+- Border colour (`--border`)
+
+Show a live preview panel inside the admin (e.g. a mock product card and
+button) that updates instantly as colours are changed, before saving.
+
+Include a "Reset to Default" button that restores the original palette
+already hardcoded in `index.css`.
+
+---
+
+# 3. New Admin Settings: Fonts
+
+Add font pickers for:
+
+- Heading font (currently likely a serif/display font)
+- Body font
+
+Provide a curated dropdown of Google Fonts (5–8 safe options: e.g. Playfair
+Display, Cormorant, Inter, DM Sans, Poppins, Lora, Montserrat) rather than a
+free-text field, so nothing breaks. Load the chosen fonts dynamically via
+Google Fonts `<link>` injection based on saved settings.
+
+---
+
+# 4. New Admin Settings: Animation & Motion
+
+Add controls for:
+
+- Animation style: `subtle` / `normal` / `playful` (adjusts duration/easing
+  of existing fade-up, hover-lift, and transition effects already used in
+  components like `Hero.jsx`, `ProductCard.jsx`, `PageTransition.jsx`)
+- Toggle: enable/disable page transition animation
+- Toggle: enable/disable hover animations on product cards
+- Toggle: "Reduced motion" mode (disables all non-essential animation, for
+  accessibility) — this should also automatically respect the user's OS
+  `prefers-reduced-motion` setting regardless of admin setting
+
+Implement this by adding a small set of CSS variables for animation
+duration/easing (e.g. `--transition-speed`, `--ease`) that existing
+transition/animation rules already reference, or refactor existing
+hardcoded transition durations to use these new variables without changing
+current visual behavior when left at defaults.
+
+---
+
+# 5. Radius & Shadow (optional but nice)
+
+Add sliders/dropdowns for:
+
+- Corner roundness: `sharp` / `soft` / `rounded` (maps to `--radius`,
+  `--radius-sm`)
+- Shadow intensity: `flat` / `soft` / `elevated` (maps to `--shadow`,
+  `--shadow-sm`, `--shadow-lg`)
+
+---
+
+# 6. Persistence & API
+
+- Save all theme values via the existing
+  `PUT /api/admin/settings` endpoint (extend the payload, don't replace it)
+- Extend `GET /api/settings` (public) to also return theme keys so the
+  storefront can apply them on load without needing admin auth
+- Ensure saving theme settings does NOT overwrite unrelated settings
+  already stored (hero text, trust badges, category labels, etc.) — merge,
+  don't replace
+
+---
+
+# 7. Constraints
+
+- Do not hardcode new colours/fonts directly into component files — they
+  must flow through CSS variables set from saved settings.
+- Do not break the existing default look: with no theme settings saved,
+  the site must render exactly as it does today.
+- Do not break any other Settings tab section (Hero, Trust badges,
+  Category labels, Delivery charge, etc.).
+- Changes must apply live across the whole storefront (Home, ProductDetails,
+  Checkout, etc.) — not just the homepage.
+- Test: change each control in admin, save, reload the public site, and
+  confirm it applies. Then reset to default and confirm it reverts cleanly.

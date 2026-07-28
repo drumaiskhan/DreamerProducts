@@ -1,8 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
+
+/* ── Stripe loader ───────────────────────────────────────────── */
+let stripePromise = null;
+function getStripe(key) {
+  if (!key) return Promise.resolve(null);
+  if (!stripePromise) {
+    stripePromise = new Promise((resolve) => {
+      if (window.Stripe) { resolve(window.Stripe(key)); return; }
+      const script = document.createElement('script');
+      script.src = 'https://js.stripe.com/v3/';
+      script.onload = () => resolve(window.Stripe(key));
+      script.onerror = () => resolve(null);
+      document.head.appendChild(script);
+    });
+  }
+  return stripePromise;
+}
 
 export default function Checkout() {
   const { items, total: subtotal, clearCart } = useCart();
@@ -23,9 +40,46 @@ export default function Checkout() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
 
+  // Coupon
+  const [couponInput, setCouponInput] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // { code, discount }
+
+  // Payment method
+  const [payMethod, setPayMethod] = useState('cod');
+  const [stripeConfig, setStripeConfig] = useState({ enabled: false, publishable_key: '' });
+  const cardElementRef = useRef(null);
+  const stripeRef = useRef(null);
+  const cardRef = useRef(null);
+
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => {});
+    fetch('/api/stripe/config').then(r => r.json()).then(cfg => {
+      if (cfg.enabled) setStripeConfig(cfg);
+    }).catch(() => {});
   }, []);
+
+  // Mount Stripe card element when card payment is selected
+  useEffect(() => {
+    if (payMethod !== 'card' || !stripeConfig.enabled || !stripeConfig.publishable_key) return;
+    let mounted = true;
+    getStripe(stripeConfig.publishable_key).then(stripe => {
+      if (!stripe || !mounted || !cardElementRef.current) return;
+      stripeRef.current = stripe;
+      if (cardRef.current) { cardRef.current.unmount(); cardRef.current = null; }
+      const elements = stripe.elements();
+      const card = elements.create('card', {
+        style: {
+          base: { fontSize: '14px', color: '#2D2927', fontFamily: 'DM Sans, sans-serif', '::placeholder': { color: '#A09590' } },
+          invalid: { color: '#b91c1c' },
+        },
+      });
+      card.mount(cardElementRef.current);
+      cardRef.current = card;
+    });
+    return () => { mounted = false; };
+  }, [payMethod, stripeConfig]);
 
   // ── Delivery calculation ──────────────────────────────────────
   const deliveryCharge = Number(settings.delivery_charge ?? 200);
@@ -33,11 +87,27 @@ export default function Checkout() {
   const deliveryNote = settings.delivery_note || '';
   const isFreeDelivery = freeDeliveryMin > 0 && subtotal >= freeDeliveryMin;
   const deliveryFee = isFreeDelivery ? 0 : deliveryCharge;
-  const grandTotal = subtotal + deliveryFee;
+  const discount = appliedCoupon?.discount || 0;
+  const grandTotal = Math.max(0, subtotal + deliveryFee - discount);
 
   const wa = settings.whatsapp_number || '923001234567';
-
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  // ── Coupon ────────────────────────────────────────────────────
+  async function handleApplyCoupon() {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true); setCouponError(''); setAppliedCoupon(null);
+    try {
+      const res = await api.validateCoupon(couponInput.trim(), subtotal + deliveryFee);
+      setAppliedCoupon({ code: res.coupon.code, discount: res.discount });
+    } catch (err) {
+      setCouponError(err.message);
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
+  function removeCoupon() { setAppliedCoupon(null); setCouponInput(''); setCouponError(''); }
 
   // ── Empty cart ────────────────────────────────────────────────
   if (items.length === 0 && !success) {
@@ -59,7 +129,7 @@ export default function Checkout() {
       .map(i => `• ${i.name} × ${i.quantity} — Rs ${Number(i.price * i.quantity).toLocaleString()}`)
       .join('\n');
     const waMsg = encodeURIComponent(
-      `Hi Dreamer Products! I just placed Order #${success.id}.\n\nCustomer: ${form.name}\nPhone: ${form.phone}\nAddress: ${fullAddress}\n\nItems:\n${itemsText}\n\nSubtotal: Rs ${Number(subtotal).toLocaleString()}\nDelivery: Rs ${Number(deliveryFee).toLocaleString()}\nTotal: Rs ${Number(grandTotal).toLocaleString()}${form.notes ? `\n\nNotes: ${form.notes}` : ''}`
+      `Hi Dreamer Products! I just placed Order #${success.id}.\n\nCustomer: ${form.name}\nPhone: ${form.phone}\nAddress: ${fullAddress}\n\nItems:\n${itemsText}\n\nSubtotal: Rs ${Number(subtotal).toLocaleString()}\nDelivery: Rs ${Number(deliveryFee).toLocaleString()}${discount > 0 ? `\nDiscount: −Rs ${Number(discount).toLocaleString()}` : ''}\nTotal: Rs ${Number(grandTotal).toLocaleString()}${form.notes ? `\n\nNotes: ${form.notes}` : ''}`
     );
     return (
       <div className="co-success-page">
@@ -77,26 +147,28 @@ export default function Checkout() {
               </div>
             ))}
             <div className="co-sb-divider" />
-            <div className="co-sb-row co-sb-sub">
-              <span>Subtotal</span>
-              <span>Rs {Number(subtotal).toLocaleString()}</span>
-            </div>
+            <div className="co-sb-row co-sb-sub"><span>Subtotal</span><span>Rs {Number(subtotal).toLocaleString()}</span></div>
+            {discount > 0 && (
+              <div className="co-sb-row co-sb-sub" style={{ color: '#16a34a' }}>
+                <span>Discount ({appliedCoupon?.code})</span>
+                <span>−Rs {Number(discount).toLocaleString()}</span>
+              </div>
+            )}
             <div className="co-sb-row co-sb-sub">
               <span>Delivery</span>
               <span>{deliveryFee === 0 ? <span className="co-free-tag">FREE</span> : `Rs ${Number(deliveryFee).toLocaleString()}`}</span>
             </div>
             <div className="co-sb-divider" />
-            <div className="co-sb-row co-sb-total">
-              <span>Total</span>
-              <span>Rs {Number(grandTotal).toLocaleString()}</span>
-            </div>
+            <div className="co-sb-row co-sb-total"><span>Total</span><span>Rs {Number(grandTotal).toLocaleString()}</span></div>
           </div>
 
-          <a className="btn btn-primary co-wa-btn"
-            href={`https://wa.me/${wa}?text=${waMsg}`}
-            target="_blank" rel="noopener noreferrer">
-            Confirm on WhatsApp
-          </a>
+          {payMethod === 'cod' && (
+            <a className="btn btn-primary co-wa-btn"
+              href={`https://wa.me/${wa}?text=${waMsg}`}
+              target="_blank" rel="noopener noreferrer">
+              Confirm on WhatsApp
+            </a>
+          )}
           <Link to="/" className="co-home-link">← Continue shopping</Link>
         </div>
 
@@ -126,23 +198,35 @@ export default function Checkout() {
     e.preventDefault();
     setError(''); setLoading(true);
     const fullAddress = [form.address, form.area].filter(Boolean).join(', ');
+
     try {
-      const order = await api.createOrder({
+      // Send only IDs + quantities — server loads prices authoritatively
+      const orderPayload = {
         customer_name: form.name,
         email: form.email,
         phone: form.phone,
         address: fullAddress,
         city: form.city,
         notes: form.notes,
-        items: items.map(i => ({
-          id: i.product.id,
-          name: i.product.name,
-          price: i.product.price,
-          quantity: i.quantity,
-        })),
-        delivery_charge: deliveryFee,
-        total: grandTotal,
-      });
+        items: items.map(i => ({ id: i.product.id, quantity: i.quantity })),
+        payment_method: payMethod,
+        coupon_code: appliedCoupon?.code || null,
+      };
+
+      const res = await api.createOrder(orderPayload);
+      // Server always returns { order } for COD or { order, client_secret } for card
+      const order = res.order || res;
+
+      if (res.client_secret) {
+        // Confirm card payment with the client_secret tied to this specific order
+        if (!stripeRef.current || !cardRef.current) throw new Error('Card payment element not ready. Please try again.');
+        const { error: stripeError } = await stripeRef.current.confirmCardPayment(
+          res.client_secret,
+          { payment_method: { card: cardRef.current, billing_details: { name: form.name, email: form.email } } }
+        );
+        if (stripeError) throw new Error(stripeError.message);
+      }
+
       clearCart();
       setSuccess(order);
     } catch (err) {
@@ -187,6 +271,34 @@ export default function Checkout() {
             })}
           </div>
 
+          {/* Coupon */}
+          <div className="co-coupon-section">
+            {appliedCoupon ? (
+              <div className="co-coupon-applied">
+                <span className="co-coupon-check">✓</span>
+                <div>
+                  <p className="co-coupon-code">{appliedCoupon.code}</p>
+                  <p className="co-coupon-save">Saves Rs {Number(appliedCoupon.discount).toLocaleString()}</p>
+                </div>
+                <button className="co-coupon-remove" onClick={removeCoupon}>×</button>
+              </div>
+            ) : (
+              <div className="co-coupon-row">
+                <input
+                  className="co-coupon-input"
+                  placeholder="Coupon code"
+                  value={couponInput}
+                  onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleApplyCoupon())}
+                />
+                <button className="co-coupon-btn" onClick={handleApplyCoupon} disabled={couponLoading || !couponInput.trim()}>
+                  {couponLoading ? '…' : 'Apply'}
+                </button>
+              </div>
+            )}
+            {couponError && <p className="co-coupon-err">{couponError}</p>}
+          </div>
+
           {/* Bill breakdown */}
           <div className="co-bill">
             <div className="co-bill-row">
@@ -205,9 +317,13 @@ export default function Checkout() {
                 Add Rs {Number(freeDeliveryMin - subtotal).toLocaleString()} more for free delivery
               </p>
             )}
-            {deliveryNote ? (
-              <p className="co-delivery-note">{deliveryNote}</p>
-            ) : null}
+            {deliveryNote ? <p className="co-delivery-note">{deliveryNote}</p> : null}
+            {discount > 0 && (
+              <div className="co-bill-row" style={{ color: '#a8e6b0' }}>
+                <span>Discount ({appliedCoupon?.code})</span>
+                <span>−Rs {Number(discount).toLocaleString()}</span>
+              </div>
+            )}
             <div className="co-bill-divider" />
             <div className="co-bill-row co-bill-total">
               <span>Total</span>
@@ -249,12 +365,7 @@ export default function Checkout() {
           <p className="co-section-label" style={{ marginTop: 24 }}>Delivery address</p>
           <div className="field">
             <label>House / Flat no. &amp; Street *</label>
-            <input
-              value={form.address}
-              onChange={set('address')}
-              required
-              placeholder="e.g. House 5, Block B, Main Boulevard"
-            />
+            <input value={form.address} onChange={set('address')} required placeholder="e.g. House 5, Block B, Main Boulevard" />
           </div>
           <div className="co-row">
             <div className="field">
@@ -271,7 +382,39 @@ export default function Checkout() {
             <textarea value={form.notes} onChange={set('notes')} placeholder="Preferred delivery time, landmark, etc." rows={3} />
           </div>
 
-          {/* Bill summary on mobile */}
+          {/* Payment method */}
+          <p className="co-section-label" style={{ marginTop: 24 }}>Payment method</p>
+          <div className="co-pay-methods">
+            <label className={`co-pay-option ${payMethod === 'cod' ? 'selected' : ''}`}>
+              <input type="radio" name="paymethod" value="cod" checked={payMethod === 'cod'} onChange={() => setPayMethod('cod')} />
+              <div className="co-pay-icon">💵</div>
+              <div>
+                <p className="co-pay-title">Cash on Delivery</p>
+                <p className="co-pay-sub">Pay when your order arrives</p>
+              </div>
+            </label>
+            {stripeConfig.enabled && (
+              <label className={`co-pay-option ${payMethod === 'card' ? 'selected' : ''}`}>
+                <input type="radio" name="paymethod" value="card" checked={payMethod === 'card'} onChange={() => setPayMethod('card')} />
+                <div className="co-pay-icon">💳</div>
+                <div>
+                  <p className="co-pay-title">Pay by Card</p>
+                  <p className="co-pay-sub">Secured by Stripe</p>
+                </div>
+              </label>
+            )}
+          </div>
+
+          {/* Stripe card element */}
+          {payMethod === 'card' && stripeConfig.enabled && (
+            <div className="co-card-field">
+              <label style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink)', marginBottom: 8, display: 'block' }}>Card details</label>
+              <div ref={cardElementRef} className="co-stripe-element" />
+              <p style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 6 }}>🔒 Secured by Stripe — your card details are never stored on our servers</p>
+            </div>
+          )}
+
+          {/* Mobile bill */}
           <div className="co-mobile-bill">
             <div className="co-mb-row"><span>Subtotal</span><span>Rs {Number(subtotal).toLocaleString()}</span></div>
             <div className="co-mb-row">
@@ -281,162 +424,125 @@ export default function Checkout() {
                 : <span>Rs {Number(deliveryFee).toLocaleString()}</span>
               }
             </div>
+            {discount > 0 && (
+              <div className="co-mb-row" style={{ color: '#16a34a' }}>
+                <span>Discount</span><span>−Rs {Number(discount).toLocaleString()}</span>
+              </div>
+            )}
             <div className="co-mb-divider" />
             <div className="co-mb-row co-mb-total"><span>Total</span><span>Rs {Number(grandTotal).toLocaleString()}</span></div>
           </div>
 
           <button className="btn btn-primary co-submit" disabled={loading}>
-            {loading ? 'Placing order…' : `Place Order · Rs ${Number(grandTotal).toLocaleString()}`}
+            {loading
+              ? 'Processing…'
+              : payMethod === 'card'
+                ? `Pay Now · Rs ${Number(grandTotal).toLocaleString()}`
+                : `Place Order · Rs ${Number(grandTotal).toLocaleString()}`
+            }
           </button>
-          <p className="co-note">We'll confirm your order via WhatsApp or email within a few hours</p>
+          <p className="co-note">
+            {payMethod === 'cod'
+              ? "We'll confirm your order via WhatsApp or email within a few hours"
+              : 'Your payment is processed securely by Stripe'}
+          </p>
         </form>
       </div>
 
       <style>{`
-        .co-page {
-          min-height: 100vh;
-          background: var(--cream);
-          display: flex; align-items: stretch; justify-content: center;
-        }
-        .co-container {
-          display: grid; grid-template-columns: 1fr 1fr;
-          max-width: 1100px; width: 100%; margin: 0 auto;
-        }
+        .co-page { min-height:100vh;background:var(--cream);display:flex;align-items:stretch;justify-content:center; }
+        .co-container { display:grid;grid-template-columns:1fr 1fr;max-width:1100px;width:100%;margin:0 auto; }
 
-        /* ── Summary (left) ── */
-        .co-summary {
-          background: var(--twilight);
-          padding: 52px 44px;
-          color: rgba(250,243,236,0.8);
-          display: flex; flex-direction: column;
-        }
-        .co-back {
-          display: inline-block; font-size: 12.5px;
-          color: rgba(250,243,236,0.45); margin-bottom: 36px;
-          transition: color .18s; text-decoration: none;
-        }
-        .co-back:hover { color: var(--cream); }
-        .co-summary-brand {
-          display: flex; align-items: baseline; gap: 4px; margin-bottom: 28px;
-        }
-        .co-brand-dr {
-          font-size: 12px; font-weight: 600; color: var(--sage-light);
-          letter-spacing: 0.07em; font-family: 'DM Sans', sans-serif;
-        }
-        .co-brand-name { font-size: 20px; color: #fff; }
-        .co-summary-title { font-size: 22px; color: var(--cream); margin-bottom: 24px; }
+        .co-summary { background:var(--twilight);padding:52px 44px;color:rgba(250,243,236,0.8);display:flex;flex-direction:column; }
+        .co-back { display:inline-block;font-size:12.5px;color:rgba(250,243,236,0.45);margin-bottom:36px;transition:color .18s;text-decoration:none; }
+        .co-back:hover { color:var(--cream); }
+        .co-summary-brand { display:flex;align-items:baseline;gap:4px;margin-bottom:28px; }
+        .co-brand-dr { font-size:12px;font-weight:600;color:var(--sage-light);letter-spacing:.07em;font-family:'DM Sans',sans-serif; }
+        .co-brand-name { font-size:20px;color:#fff; }
+        .co-summary-title { font-size:22px;color:var(--cream);margin-bottom:24px; }
 
-        .co-items { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
-        .co-item { display: flex; align-items: center; gap: 14px; }
-        .co-item-img {
-          position: relative; width: 58px; height: 58px; flex-shrink: 0;
-          border-radius: 10px; overflow: hidden;
-          background: rgba(250,243,236,.1);
-        }
-        .co-item-img img { width: 100%; height: 100%; object-fit: cover; }
-        .co-item-ph { width: 100%; height: 100%; }
-        .co-item-qty {
-          position: absolute; top: -6px; right: -6px;
-          background: var(--dusty-rose); color: #fff;
-          font-size: 10px; font-weight: 700;
-          width: 20px; height: 20px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .co-item-info { flex: 1; }
-        .co-item-name { font-size: 13.5px; font-weight: 600; color: var(--cream); margin: 0 0 3px; }
-        .co-item-cat { font-size: 11px; opacity: .45; margin: 0; text-transform: capitalize; }
-        .co-item-price { font-size: 13.5px; font-weight: 700; color: var(--cream); white-space: nowrap; }
+        .co-items { display:flex;flex-direction:column;gap:14px;margin-bottom:20px; }
+        .co-item { display:flex;align-items:center;gap:14px; }
+        .co-item-img { position:relative;width:58px;height:58px;flex-shrink:0;border-radius:10px;overflow:hidden;background:rgba(250,243,236,.1); }
+        .co-item-img img { width:100%;height:100%;object-fit:cover; }
+        .co-item-ph { width:100%;height:100%; }
+        .co-item-qty { position:absolute;top:-6px;right:-6px;background:var(--dusty-rose);color:#fff;font-size:10px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center; }
+        .co-item-info { flex:1; }
+        .co-item-name { font-size:13.5px;font-weight:600;color:var(--cream);margin:0 0 3px; }
+        .co-item-cat { font-size:11px;opacity:.45;margin:0;text-transform:capitalize; }
+        .co-item-price { font-size:13.5px;font-weight:700;color:var(--cream);white-space:nowrap; }
+
+        /* Coupon */
+        .co-coupon-section { margin-bottom:14px; }
+        .co-coupon-row { display:flex;gap:8px; }
+        .co-coupon-input { flex:1;background:rgba(255,255,255,.1);border:1.5px solid rgba(250,243,236,.2);color:var(--cream);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;letter-spacing:.05em; }
+        .co-coupon-input::placeholder { color:rgba(250,243,236,.35); }
+        .co-coupon-input:focus { border-color:rgba(250,243,236,.5); }
+        .co-coupon-btn { background:rgba(255,255,255,.15);color:var(--cream);border:1.5px solid rgba(250,243,236,.25);border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .18s;white-space:nowrap; }
+        .co-coupon-btn:hover:not(:disabled) { background:rgba(255,255,255,.25); }
+        .co-coupon-btn:disabled { opacity:.5;cursor:not-allowed; }
+        .co-coupon-applied { display:flex;align-items:center;gap:10px;background:rgba(134,190,140,.15);border:1.5px solid rgba(134,190,140,.35);border-radius:8px;padding:10px 14px; }
+        .co-coupon-check { width:20px;height:20px;border-radius:50%;background:#a8e6b0;color:#14532d;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+        .co-coupon-code { font-size:13px;font-weight:700;color:#a8e6b0;margin:0; }
+        .co-coupon-save { font-size:11px;color:rgba(250,243,236,.6);margin:2px 0 0; }
+        .co-coupon-remove { margin-left:auto;background:none;border:none;color:rgba(250,243,236,.5);font-size:18px;cursor:pointer;line-height:1;padding:0 4px; }
+        .co-coupon-remove:hover { color:var(--cream); }
+        .co-coupon-err { font-size:12px;color:#fca5a5;margin:6px 0 0; }
 
         /* Bill */
-        .co-bill {
-          border-top: 1px solid rgba(250,243,236,.12);
-          padding-top: 20px;
-          display: flex; flex-direction: column; gap: 10px;
-          margin-top: auto;
-        }
-        .co-bill-row {
-          display: flex; justify-content: space-between; align-items: center;
-          font-size: 13.5px; color: rgba(250,243,236,.65);
-        }
-        .co-free-badge {
-          background: rgba(134,190,140,.22); color: #a8e6b0;
-          font-size: 11px; font-weight: 700; letter-spacing: .06em;
-          padding: 3px 10px; border-radius: 999px;
-        }
-        .co-free-hint {
-          font-size: 11.5px; color: rgba(250,243,236,.4);
-          margin: 0; line-height: 1.5;
-        }
-        .co-delivery-note {
-          font-size: 11.5px; color: rgba(250,243,236,.4);
-          margin: 0; font-style: italic;
-        }
-        .co-bill-divider { border: none; border-top: 1px solid rgba(250,243,236,.12); margin: 2px 0; }
-        .co-bill-total { color: var(--cream) !important; }
-        .co-bill-total .display { font-size: 22px; color: var(--cream); }
+        .co-bill { border-top:1px solid rgba(250,243,236,.12);padding-top:20px;display:flex;flex-direction:column;gap:10px;margin-top:auto; }
+        .co-bill-row { display:flex;justify-content:space-between;align-items:center;font-size:13.5px;color:rgba(250,243,236,.65); }
+        .co-free-badge { background:rgba(134,190,140,.22);color:#a8e6b0;font-size:11px;font-weight:700;letter-spacing:.06em;padding:3px 10px;border-radius:999px; }
+        .co-free-hint { font-size:11.5px;color:rgba(250,243,236,.4);margin:0;line-height:1.5; }
+        .co-delivery-note { font-size:11.5px;color:rgba(250,243,236,.4);margin:0;font-style:italic; }
+        .co-bill-divider { border:none;border-top:1px solid rgba(250,243,236,.12);margin:2px 0; }
+        .co-bill-total { color:var(--cream) !important; }
+        .co-bill-total .display { font-size:22px;color:var(--cream); }
 
-        /* ── Form (right) ── */
-        .co-form {
-          padding: 52px 44px;
-          background: #fff;
-          display: flex; flex-direction: column; gap: 0;
-          overflow-y: auto;
-        }
-        .co-form-title { font-size: 24px; margin-bottom: 22px; }
-        .co-section-label {
-          font-size: 10px; font-weight: 700; letter-spacing: .14em;
-          text-transform: uppercase; color: var(--ink-soft);
-          margin: 0 0 14px;
-        }
-        .co-auth-hint {
-          background: #f0f4ff; border-radius: 10px;
-          padding: 10px 14px; font-size: 13.5px;
-          color: var(--ink-soft); margin-bottom: 20px;
-        }
-        .co-auth-link { color: var(--dusty-rose); font-weight: 600; }
-        .co-error {
-          background: #fbe7e9; color: #93303f; font-size: 13.5px;
-          padding: 11px 14px; border-radius: 10px; margin-bottom: 18px;
-        }
-        .co-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-        .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-        .field label { font-size: 12.5px; font-weight: 700; color: var(--ink); letter-spacing: .02em; }
-        .field input, .field textarea {
-          font-size: 14px; padding: 11px 14px;
-          border: 1.5px solid var(--border); border-radius: 10px;
-          font-family: inherit; outline: none; background: var(--cream);
-          transition: border-color .15s, box-shadow .15s; resize: none; color: var(--ink);
-        }
-        .field input:focus, .field textarea:focus {
-          border-color: var(--forest); background: #fff;
-          box-shadow: 0 0 0 3px rgba(27,58,45,.08);
-        }
-        .co-opt { font-weight: 400; color: var(--ink-soft); font-size: 11px; }
+        /* Form */
+        .co-form { padding:52px 44px;background:#fff;display:flex;flex-direction:column;gap:0;overflow-y:auto; }
+        .co-form-title { font-size:24px;margin-bottom:22px; }
+        .co-section-label { font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 14px; }
+        .co-auth-hint { background:#f0f4ff;border-radius:10px;padding:10px 14px;font-size:13.5px;color:var(--ink-soft);margin-bottom:20px; }
+        .co-auth-link { color:var(--dusty-rose);font-weight:600; }
+        .co-error { background:#fbe7e9;color:#93303f;font-size:13.5px;padding:11px 14px;border-radius:10px;margin-bottom:18px; }
+        .co-row { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
+        .field { display:flex;flex-direction:column;gap:6px;margin-bottom:14px; }
+        .field label { font-size:12.5px;font-weight:700;color:var(--ink);letter-spacing:.02em; }
+        .field input,.field textarea { font-size:14px;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;outline:none;background:var(--cream);transition:border-color .15s,box-shadow .15s;resize:none;color:var(--ink); }
+        .field input:focus,.field textarea:focus { border-color:var(--forest);background:#fff;box-shadow:0 0 0 3px rgba(27,58,45,.08); }
+        .co-opt { font-weight:400;color:var(--ink-soft);font-size:11px; }
+
+        /* Payment methods */
+        .co-pay-methods { display:flex;flex-direction:column;gap:8px;margin-bottom:16px; }
+        .co-pay-option { display:flex;align-items:center;gap:12px;border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;cursor:pointer;transition:border-color .18s,background .18s; }
+        .co-pay-option input[type="radio"] { width:16px;height:16px;accent-color:var(--forest);flex-shrink:0;cursor:pointer; }
+        .co-pay-option.selected { border-color:var(--forest);background:rgba(27,58,45,.04); }
+        .co-pay-icon { font-size:22px;flex-shrink:0; }
+        .co-pay-title { font-size:13.5px;font-weight:700;color:var(--ink);margin:0 0 2px; }
+        .co-pay-sub { font-size:11.5px;color:var(--ink-soft);margin:0; }
+
+        /* Stripe card element */
+        .co-card-field { margin-bottom:14px; }
+        .co-stripe-element { border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--cream);transition:border-color .15s; }
+        .co-stripe-element.StripeElement--focus { border-color:var(--forest); }
 
         /* Mobile bill */
-        .co-mobile-bill { display: none; }
+        .co-mobile-bill { display:none; }
+        .co-submit { width:100%;margin-top:8px;font-size:15px;padding:14px; }
+        .co-note { text-align:center;font-size:12px;color:var(--ink-soft);margin:10px 0 0;line-height:1.5; }
 
-        .co-submit { width: 100%; margin-top: 8px; font-size: 15px; padding: 14px; }
-        .co-note {
-          text-align: center; font-size: 12px; color: var(--ink-soft);
-          margin: 10px 0 0; line-height: 1.5;
-        }
-
-        @media (max-width: 820px) {
-          .co-container { grid-template-columns: 1fr; }
-          .co-summary { padding: 36px 24px; }
-          .co-bill { display: none; }
-          .co-form { padding: 32px 24px; }
-          .co-row { grid-template-columns: 1fr; }
-          .co-mobile-bill {
-            display: flex; flex-direction: column; gap: 8px;
-            background: var(--cream); border-radius: 14px;
-            padding: 16px 18px; margin-bottom: 20px;
-          }
-          .co-mb-row { display: flex; justify-content: space-between; font-size: 13.5px; color: var(--ink-soft); }
-          .co-mb-divider { border: none; border-top: 1px solid var(--border); }
-          .co-mb-total { font-size: 15px; font-weight: 700; color: var(--ink); }
-          .co-free-badge-sm { color: #16a34a; font-weight: 700; font-size: 13px; }
+        @media (max-width:820px) {
+          .co-container { grid-template-columns:1fr; }
+          .co-summary { padding:36px 24px; }
+          .co-bill { display:none; }
+          .co-form { padding:32px 24px; }
+          .co-row { grid-template-columns:1fr; }
+          .co-mobile-bill { display:flex;flex-direction:column;gap:8px;background:var(--cream);border-radius:14px;padding:16px 18px;margin-bottom:20px; }
+          .co-mb-row { display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink-soft); }
+          .co-mb-divider { border:none;border-top:1px solid var(--border); }
+          .co-mb-total { font-size:15px;font-weight:700;color:var(--ink); }
+          .co-free-badge-sm { color:#16a34a;font-weight:700;font-size:13px; }
         }
       `}</style>
     </div>

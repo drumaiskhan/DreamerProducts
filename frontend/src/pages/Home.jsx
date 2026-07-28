@@ -12,39 +12,49 @@ import { api } from '../lib/api';
 
 export default function Home() {
   const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState('newest');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [enquiryProduct, setEnquiryProduct] = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [settings, setSettings] = useState({});
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => {});
   }, []);
 
-useEffect(() => {
-  setLoading(true);
-  setError('');
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    const params = {};
+    if (filter !== 'all') params.category = filter;
+    if (sort !== 'newest') params.sort = sort;
+    if (minPrice) params.min_price = minPrice;
+    if (maxPrice) params.max_price = maxPrice;
+    api.getProductsFiltered(params)
+      .then((data) => {
+        const list = Array.isArray(data) ? data : data.products || [];
+        setProducts(list);
+        setLoading(false);
+      })
+      .catch((e) => {
+        setError(e.message);
+        setLoading(false);
+      });
+  }, [filter, sort, minPrice, maxPrice]);
 
-  api.getProducts(filter === 'all' ? null : filter)
-    .then((data) => {
-      console.log("PRODUCT DATA FROM API:", data);
+  const hasActiveFilters = filter !== 'all' || sort !== 'newest' || minPrice || maxPrice;
 
-      const list = Array.isArray(data)
-        ? data
-        : data.products || [];
-
-      setProducts(list);
-      setLoading(false);
-    })
-    .catch((e) => {
-      console.error("PRODUCT ERROR:", e);
-      setError(e.message);
-      setLoading(false);
-    });
-
-}, [filter]);
+  function clearAllFilters() {
+    setFilter('all');
+    setSort('newest');
+    setMinPrice('');
+    setMaxPrice('');
+  }
 
   function handleCategory(cat) {
     setFilter(cat);
@@ -76,11 +86,57 @@ useEffect(() => {
             {!loading && !error && products.length > 0 && (
               <span className="prod-count">{products.length} product{products.length !== 1 ? 's' : ''}</span>
             )}
-            {filter !== 'all' && (
-              <button className="clear-btn" onClick={() => setFilter('all')}>Clear filter ×</button>
+            <button className="filter-toggle-btn" onClick={() => setShowFilters(f => !f)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+              {showFilters ? 'Hide filters' : 'Filter & Sort'}
+              {hasActiveFilters && <span className="filter-dot" />}
+            </button>
+            {hasActiveFilters && (
+              <button className="clear-btn" onClick={clearAllFilters}>Clear all ×</button>
             )}
           </div>
         </div>
+
+        {/* Filter/sort panel */}
+        {showFilters && (
+          <div className="filter-panel">
+            <div className="filter-group">
+              <p className="filter-label">Category</p>
+              <div className="filter-pills">
+                {[['all','All'],['skin','Skincare'],['hair','Haircare'],['perfumes','Perfumes']].map(([k,l]) => (
+                  <button key={k} className={`filter-pill ${filter === k ? 'active' : ''}`} onClick={() => setFilter(k)}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div className="filter-group">
+              <p className="filter-label">Sort by</p>
+              <select className="filter-select" value={sort} onChange={e => setSort(e.target.value)}>
+                <option value="newest">Newest</option>
+                <option value="price_asc">Price: Low → High</option>
+                <option value="price_desc">Price: High → Low</option>
+                <option value="rating">Highest Rated</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <p className="filter-label">Price range (Rs)</p>
+              <div className="filter-price-row">
+                <input
+                  type="number" min="0" placeholder="Min"
+                  className="filter-price-input"
+                  value={minPrice}
+                  onChange={e => setMinPrice(e.target.value)}
+                />
+                <span className="filter-price-sep">—</span>
+                <input
+                  type="number" min="0" placeholder="Max"
+                  className="filter-price-input"
+                  value={maxPrice}
+                  onChange={e => setMaxPrice(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading && (
           <div className="grid">
@@ -194,6 +250,48 @@ useEffect(() => {
           transition: background .18s, color .18s;
         }
         .clear-btn:hover { background: var(--sage); color: #fff; }
+
+        .filter-toggle-btn {
+          display: flex; align-items: center; gap: 6px;
+          font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+          color: var(--ink-soft); background: none; border: 1.5px solid var(--border);
+          border-radius: 2px; padding: 6px 14px; cursor: pointer;
+          transition: border-color .18s, color .18s; position: relative;
+        }
+        .filter-toggle-btn:hover { color: var(--forest); border-color: var(--forest); }
+        .filter-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dusty-rose); }
+
+        .filter-panel {
+          background: #fff; border: 1px solid var(--border); border-radius: 12px;
+          padding: 22px 24px; margin-bottom: 28px;
+          display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 10px; }
+        .filter-label {
+          font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+          color: var(--ink-soft); margin: 0;
+        }
+        .filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+        .filter-pill {
+          font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: 999px;
+          border: 1.5px solid var(--border); background: none; cursor: pointer;
+          color: var(--ink-soft); font-family: inherit; transition: all .15s;
+        }
+        .filter-pill:hover { border-color: var(--forest); color: var(--forest); }
+        .filter-pill.active { background: var(--forest); color: #fff; border-color: var(--forest); }
+        .filter-select {
+          font-size: 13px; padding: 8px 12px; border-radius: 8px;
+          border: 1.5px solid var(--border); font-family: inherit; background: #fff;
+          cursor: pointer; outline: none; color: var(--ink); min-width: 180px;
+        }
+        .filter-price-row { display: flex; align-items: center; gap: 8px; }
+        .filter-price-input {
+          width: 90px; font-size: 13px; padding: 8px 10px; border-radius: 8px;
+          border: 1.5px solid var(--border); font-family: inherit; outline: none;
+          background: var(--cream); color: var(--ink);
+        }
+        .filter-price-input:focus { border-color: var(--forest); }
+        .filter-price-sep { color: var(--ink-soft); font-size: 14px; }
 
         .card-skel-outer {
           border-radius: 4px; aspect-ratio: 1/1.45;

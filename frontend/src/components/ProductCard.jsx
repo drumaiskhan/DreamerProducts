@@ -85,7 +85,12 @@ export default function ProductCard({ product, onEnquire }) {
           <div className="card-badges">
             <span className="card-tag">{catLabel}</span>
             {Boolean(product.featured) && <span className="card-tag card-tag-accent">Featured</span>}
-            {product.stock === 0 && <span className="card-tag card-tag-oos">Sold Out</span>}
+            {product.stock === 0
+              ? <span className="card-tag card-tag-oos">Sold Out</span>
+              : product.stock <= 5
+                ? <span className="card-tag card-tag-low">Only {product.stock} left</span>
+                : null
+            }
           </div>
 
           {hasMultiple && (
@@ -196,6 +201,7 @@ export default function ProductCard({ product, onEnquire }) {
         }
         .card-tag-accent { background: var(--accent); color: #fff; }
         .card-tag-oos { background: #1C1C1C; color: #fff; }
+        .card-tag-low { background: #b45309; color: #fff; }
 
         .img-nav {
           position: absolute; top: 50%; transform: translateY(-50%);
