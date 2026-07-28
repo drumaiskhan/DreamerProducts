@@ -419,7 +419,7 @@ function OrdersTab() {
                           <p className="order-meta">🎟 {o.coupon_code} −Rs {Number(o.discount_amount).toLocaleString()}</p>
                         )}
                         <p className="order-meta" style={{ textTransform: 'uppercase', fontSize: 11 }}>
-                          {o.payment_method === 'cod' ? '💵 COD' : '💳 Card'}
+                          {o.payment_status === 'paid' ? '✅ Paid' : '⏳ Pending'}
                         </p>
                       </td>
                       <td>

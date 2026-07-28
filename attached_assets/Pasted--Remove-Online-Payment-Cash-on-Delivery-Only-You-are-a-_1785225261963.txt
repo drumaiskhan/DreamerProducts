@@ -1,0 +1,88 @@
+# Remove Online Payment — Cash on Delivery Only
+
+You are a senior full-stack developer. Remove the online/card payment
+feature entirely from the site and simplify checkout to Cash on Delivery
+(COD) only. Do NOT touch or break anything unrelated — password reset,
+MyOrders, coupons, analytics, theme settings, product/order/review/user
+management must all keep working exactly as they do now.
+
+---
+
+# 1. Backend — Remove Stripe Integration
+
+In `backend/src/server.js`:
+- Remove the routes:
+  - `POST /api/stripe/webhook`
+  - `POST /api/stripe/create-payment-intent`
+  - `GET /api/stripe/config`
+- Remove any Stripe SDK initialization, imports, and the
+  `STRIPE_SECRET_KEY` / `STRIPE_PUBLIC_KEY` references, along with the
+  "Stripe not configured" startup warning log.
+- Remove the `stripe` npm package from `package.json` if it isn't used
+  anywhere else, and update `package-lock.json` accordingly.
+- Keep the `payment_method` and `payment_status` columns/fields on
+  orders (still useful for COD), but the only valid `payment_method`
+  going forward is `cod`. Update any validation that currently expects
+  `'card'` as an option.
+- Keep `PUT /api/admin/orders/:id/payment` (admin manually marking a COD
+  order as paid/received) — that still applies to COD.
+
+---
+
+# 2. Frontend — Checkout
+
+In `Checkout.jsx`:
+- Remove all Stripe Elements / Stripe.js integration, card input fields,
+  and any payment-method selector UI (since there's only one method now,
+  no selector is needed).
+- Remove any client-side call to `/api/stripe/create-payment-intent` or
+  `/api/stripe/config`.
+- Checkout should submit the order directly via the existing
+  `POST /api/orders` flow, with `payment_method` fixed to `'cod'`.
+- Keep all existing order fields and validation (customer_name, email,
+  phone, address, city, notes, items, total, delivery_charge) exactly as
+  they are.
+
+---
+
+# 3. Admin Dashboard — Orders Tab
+
+In `AdminDashboard.jsx`:
+- Remove the `💳 Card` vs `💵 COD` badge distinction — every order is COD
+  now, so either remove the badge entirely or simplify it to just show
+  payment status (pending/paid).
+- Keep the ability for admin to mark an order's payment as
+  received/paid — that still matters for COD.
+- If a "Payments" settings section, toggle, or publishable-key field was
+  added in a previous pass, remove it from the Settings tab as well.
+
+---
+
+# 4. Site Settings
+
+- Remove any `stripe_publishable_key`, `payment_card_enabled`, or
+  `payment_cod_enabled` keys from `site_settings` handling — since COD
+  is now the only method, no payment toggle is needed at all.
+- Do not remove or affect any unrelated settings keys (theme, hero
+  content, trust badges, delivery charge, etc.) — only remove
+  payment-method-specific keys.
+
+---
+
+# 5. Environment & Config
+
+- Remove any references to `STRIPE_SECRET_KEY` / `STRIPE_PUBLIC_KEY` from
+  `.env.example`, README, or `replit.md` if they're documented there.
+
+---
+
+# 6. Constraints
+
+- Do not touch: password reset, MyOrders, coupons, analytics tab, theme
+  colours/fonts/motion system, cart behavior, product/order/review/user
+  management, or delivery charge logic.
+- After removal, run through checkout end-to-end and confirm an order
+  places successfully with no console errors and no leftover references
+  to Stripe anywhere in frontend or backend code.
+- Confirm the admin Orders tab still loads and functions correctly with
+  no broken references to removed payment fields.

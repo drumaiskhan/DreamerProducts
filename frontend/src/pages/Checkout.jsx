@@ -1,25 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-
-/* ── Stripe loader ───────────────────────────────────────────── */
-let stripePromise = null;
-function getStripe(key) {
-  if (!key) return Promise.resolve(null);
-  if (!stripePromise) {
-    stripePromise = new Promise((resolve) => {
-      if (window.Stripe) { resolve(window.Stripe(key)); return; }
-      const script = document.createElement('script');
-      script.src = 'https://js.stripe.com/v3/';
-      script.onload = () => resolve(window.Stripe(key));
-      script.onerror = () => resolve(null);
-      document.head.appendChild(script);
-    });
-  }
-  return stripePromise;
-}
 
 export default function Checkout() {
   const { items, total: subtotal, clearCart } = useCart();
@@ -46,40 +29,9 @@ export default function Checkout() {
   const [couponError, setCouponError] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null); // { code, discount }
 
-  // Payment method
-  const [payMethod, setPayMethod] = useState('cod');
-  const [stripeConfig, setStripeConfig] = useState({ enabled: false, publishable_key: '' });
-  const cardElementRef = useRef(null);
-  const stripeRef = useRef(null);
-  const cardRef = useRef(null);
-
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => {});
-    fetch('/api/stripe/config').then(r => r.json()).then(cfg => {
-      if (cfg.enabled) setStripeConfig(cfg);
-    }).catch(() => {});
   }, []);
-
-  // Mount Stripe card element when card payment is selected
-  useEffect(() => {
-    if (payMethod !== 'card' || !stripeConfig.enabled || !stripeConfig.publishable_key) return;
-    let mounted = true;
-    getStripe(stripeConfig.publishable_key).then(stripe => {
-      if (!stripe || !mounted || !cardElementRef.current) return;
-      stripeRef.current = stripe;
-      if (cardRef.current) { cardRef.current.unmount(); cardRef.current = null; }
-      const elements = stripe.elements();
-      const card = elements.create('card', {
-        style: {
-          base: { fontSize: '14px', color: '#2D2927', fontFamily: 'DM Sans, sans-serif', '::placeholder': { color: '#A09590' } },
-          invalid: { color: '#b91c1c' },
-        },
-      });
-      card.mount(cardElementRef.current);
-      cardRef.current = card;
-    });
-    return () => { mounted = false; };
-  }, [payMethod, stripeConfig]);
 
   // ── Delivery calculation ──────────────────────────────────────
   const deliveryCharge = Number(settings.delivery_charge ?? 200);
@@ -162,13 +114,11 @@ export default function Checkout() {
             <div className="co-sb-row co-sb-total"><span>Total</span><span>Rs {Number(grandTotal).toLocaleString()}</span></div>
           </div>
 
-          {payMethod === 'cod' && (
-            <a className="btn btn-primary co-wa-btn"
-              href={`https://wa.me/${wa}?text=${waMsg}`}
-              target="_blank" rel="noopener noreferrer">
-              Confirm on WhatsApp
-            </a>
-          )}
+          <a className="btn btn-primary co-wa-btn"
+            href={`https://wa.me/${wa}?text=${waMsg}`}
+            target="_blank" rel="noopener noreferrer">
+            Confirm on WhatsApp
+          </a>
           <Link to="/" className="co-home-link">← Continue shopping</Link>
         </div>
 
@@ -209,23 +159,12 @@ export default function Checkout() {
         city: form.city,
         notes: form.notes,
         items: items.map(i => ({ id: i.product.id, quantity: i.quantity })),
-        payment_method: payMethod,
+        payment_method: 'cod',
         coupon_code: appliedCoupon?.code || null,
       };
 
       const res = await api.createOrder(orderPayload);
-      // Server always returns { order } for COD or { order, client_secret } for card
       const order = res.order || res;
-
-      if (res.client_secret) {
-        // Confirm card payment with the client_secret tied to this specific order
-        if (!stripeRef.current || !cardRef.current) throw new Error('Card payment element not ready. Please try again.');
-        const { error: stripeError } = await stripeRef.current.confirmCardPayment(
-          res.client_secret,
-          { payment_method: { card: cardRef.current, billing_details: { name: form.name, email: form.email } } }
-        );
-        if (stripeError) throw new Error(stripeError.message);
-      }
 
       clearCart();
       setSuccess(order);
@@ -385,34 +324,14 @@ export default function Checkout() {
           {/* Payment method */}
           <p className="co-section-label" style={{ marginTop: 24 }}>Payment method</p>
           <div className="co-pay-methods">
-            <label className={`co-pay-option ${payMethod === 'cod' ? 'selected' : ''}`}>
-              <input type="radio" name="paymethod" value="cod" checked={payMethod === 'cod'} onChange={() => setPayMethod('cod')} />
+            <div className="co-pay-option selected">
               <div className="co-pay-icon">💵</div>
               <div>
                 <p className="co-pay-title">Cash on Delivery</p>
                 <p className="co-pay-sub">Pay when your order arrives</p>
               </div>
-            </label>
-            {stripeConfig.enabled && (
-              <label className={`co-pay-option ${payMethod === 'card' ? 'selected' : ''}`}>
-                <input type="radio" name="paymethod" value="card" checked={payMethod === 'card'} onChange={() => setPayMethod('card')} />
-                <div className="co-pay-icon">💳</div>
-                <div>
-                  <p className="co-pay-title">Pay by Card</p>
-                  <p className="co-pay-sub">Secured by Stripe</p>
-                </div>
-              </label>
-            )}
-          </div>
-
-          {/* Stripe card element */}
-          {payMethod === 'card' && stripeConfig.enabled && (
-            <div className="co-card-field">
-              <label style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink)', marginBottom: 8, display: 'block' }}>Card details</label>
-              <div ref={cardElementRef} className="co-stripe-element" />
-              <p style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 6 }}>🔒 Secured by Stripe — your card details are never stored on our servers</p>
             </div>
-          )}
+          </div>
 
           {/* Mobile bill */}
           <div className="co-mobile-bill">
@@ -434,18 +353,9 @@ export default function Checkout() {
           </div>
 
           <button className="btn btn-primary co-submit" disabled={loading}>
-            {loading
-              ? 'Processing…'
-              : payMethod === 'card'
-                ? `Pay Now · Rs ${Number(grandTotal).toLocaleString()}`
-                : `Place Order · Rs ${Number(grandTotal).toLocaleString()}`
-            }
+            {loading ? 'Processing…' : `Place Order · Rs ${Number(grandTotal).toLocaleString()}`}
           </button>
-          <p className="co-note">
-            {payMethod === 'cod'
-              ? "We'll confirm your order via WhatsApp or email within a few hours"
-              : 'Your payment is processed securely by Stripe'}
-          </p>
+          <p className="co-note">We'll confirm your order via WhatsApp or email within a few hours</p>
         </form>
       </div>
 
@@ -513,19 +423,13 @@ export default function Checkout() {
         .field input:focus,.field textarea:focus { border-color:var(--forest);background:var(--card);box-shadow:0 0 0 3px rgba(27,58,45,.08); }
         .co-opt { font-weight:400;color:var(--ink-soft);font-size:11px; }
 
-        /* Payment methods */
+        /* Payment method */
         .co-pay-methods { display:flex;flex-direction:column;gap:8px;margin-bottom:16px; }
-        .co-pay-option { display:flex;align-items:center;gap:12px;border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;cursor:pointer;transition:border-color .18s,background .18s; }
-        .co-pay-option input[type="radio"] { width:16px;height:16px;accent-color:var(--forest);flex-shrink:0;cursor:pointer; }
+        .co-pay-option { display:flex;align-items:center;gap:12px;border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;transition:border-color .18s,background .18s; }
         .co-pay-option.selected { border-color:var(--forest);background:rgba(27,58,45,.04); }
         .co-pay-icon { font-size:22px;flex-shrink:0; }
         .co-pay-title { font-size:13.5px;font-weight:700;color:var(--ink);margin:0 0 2px; }
         .co-pay-sub { font-size:11.5px;color:var(--ink-soft);margin:0; }
-
-        /* Stripe card element */
-        .co-card-field { margin-bottom:14px; }
-        .co-stripe-element { border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--cream);transition:border-color .15s; }
-        .co-stripe-element.StripeElement--focus { border-color:var(--forest); }
 
         /* Mobile bill */
         .co-mobile-bill { display:none; }

@@ -140,71 +140,8 @@ async function validateCoupon(code, orderSubtotal) {
   return { coupon: c, discount: Math.round(discount * 100) / 100 };
 }
 
-// ─── Stripe (optional) ────────────────────────────────────────
-let stripe = null;
-if (process.env.STRIPE_SECRET_KEY) {
-  const { default: Stripe } = await import('stripe');
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-04-10' });
-  console.log('✅  Stripe configured — card payments enabled');
-} else {
-  console.warn('⚠️   Stripe not configured — COD only (set STRIPE_SECRET_KEY to enable card payments)');
-}
-
 // ─── App ──────────────────────────────────────────────────────
 const app = express();
-
-// Stripe webhook needs raw body — must be before express.json()
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  if (!stripe) return res.status(404).json({ error: 'Stripe not configured' });
-  if (!process.env.STRIPE_WEBHOOK_SECRET) return res.status(400).send('Webhook secret not configured');
-  const sig = req.headers['stripe-signature'];
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    return res.status(400).send(`Webhook error: ${err.message}`);
-  }
-
-  if (event.type === 'payment_intent.succeeded') {
-    const pi = event.data.object;
-    const orderId = pi.metadata?.order_id;
-    if (orderId) {
-      try {
-        const { rows } = await pool.query(
-          "UPDATE orders SET payment_status='paid', status='Confirmed' WHERE id=$1 AND payment_status != 'paid' RETURNING *",
-          [orderId]
-        );
-        if (rows[0]) {
-          if (rows[0].coupon_code) {
-            await pool.query(
-              "UPDATE coupons SET used_count = used_count + 1 WHERE UPPER(code) = UPPER($1)",
-              [rows[0].coupon_code]
-            ).catch(() => {});
-          }
-          sendOrderEmail(rows[0]);
-        }
-      } catch (e) { console.error('Webhook update error:', e.message); }
-    }
-  } else if (event.type === 'payment_intent.payment_failed') {
-    const pi = event.data.object;
-    const orderId = pi.metadata?.order_id;
-    if (orderId) {
-      try {
-        const { rows } = await pool.query(
-          "UPDATE orders SET payment_status='failed', status='Cancelled' WHERE id=$1 AND payment_status != 'paid' RETURNING *",
-          [orderId]
-        );
-        if (rows[0]) {
-          const orderItems = Array.isArray(rows[0].items) ? rows[0].items : JSON.parse(rows[0].items || '[]');
-          for (const item of orderItems) {
-            await pool.query('UPDATE products SET stock = stock + $1 WHERE id = $2', [item.quantity, item.id]).catch(() => {});
-          }
-        }
-      } catch (e) { console.error('Webhook update error:', e.message); }
-    }
-  }
-  res.json({ received: true });
-});
 
 app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
 app.use(express.json());
@@ -460,38 +397,25 @@ app.post('/api/orders', optionalUser, async (req, res) => {
     }
 
     const finalTotal = Math.max(0, subtotal + deliveryFee - discount_amount);
-    const method = payment_method === 'card' && stripe ? 'card' : 'cod';
 
     // Insert order — payment_status stays 'pending' until confirmed
     const { rows } = await pool.query(
       `INSERT INTO orders
          (user_id,customer_name,email,phone,address,city,notes,items,total,delivery_charge,
           payment_method,payment_status,coupon_code,discount_amount)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending',$12,$13) RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'cod','pending',$11,$12) RETURNING *`,
       [req.user?.id || null, customer_name, email, phone, address, city, notes || '',
        JSON.stringify(serverItems), finalTotal, deliveryFee,
-       method, validated_coupon?.code || null, discount_amount]
+       validated_coupon?.code || null, discount_amount]
     );
     const order = rows[0];
 
-    // Decrement stock immediately for both methods
+    // Decrement stock immediately
     for (const item of serverItems) {
       await pool.query(
         'UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id = $2',
         [item.quantity, item.id]
       );
-    }
-
-    if (method === 'card') {
-      // Create PaymentIntent AFTER the order so it carries the real order_id in metadata
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(finalTotal * 100),
-        currency: 'pkr',
-        automatic_payment_methods: { enabled: true },
-        metadata: { order_id: String(order.id), customer: customer_name },
-      });
-      // Coupon usage and order email deferred to webhook on confirmed payment
-      return res.status(201).json({ order, client_secret: paymentIntent.client_secret });
     }
 
     // COD — finalise immediately
@@ -1025,32 +949,6 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
     await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ── Stripe: create payment intent ────────────────────────────
-app.post('/api/stripe/create-payment-intent', optionalUser, async (req, res) => {
-  if (!stripe) return res.status(404).json({ error: 'Stripe not configured on this server' });
-  try {
-    const { amount, currency = 'pkr', order_meta } = req.body;
-    if (!amount || amount < 1) return res.status(400).json({ error: 'Invalid amount' });
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Stripe uses smallest currency unit
-      currency,
-      automatic_payment_methods: { enabled: true },
-      metadata: order_meta || {},
-    });
-    res.json({ client_secret: paymentIntent.client_secret, payment_intent_id: paymentIntent.id });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ── Stripe: check if configured (public) ─────────────────────
-app.get('/api/stripe/config', (req, res) => {
-  res.json({
-    enabled: !!stripe,
-    publishable_key: stripe ? (process.env.STRIPE_PUBLIC_KEY || '') : '',
-  });
 });
 
 // ── Error handler ─────────────────────────────────────────────
