@@ -1,0 +1,47 @@
+# Fix: Cart Popup + Remaining Image Uploads
+
+Both were requested before and NOT implemented yet. Add them now. Do not
+touch payments, checkout, theme, coupons, or analytics — those work fine.
+
+## 1. Cart → Popup Window (not a drawer)
+- `CartDrawer.jsx` is still a sliding drawer — replace this behavior.
+- Create `pages/CartPopup.jsx`: standalone page, no Navbar/footer, same
+  cart content (items, qty controls, subtotal, delivery, total, Checkout
+  button) but compact/dense — fits a small window.
+- Add route `/cart-popup` in `App.jsx`.
+- Cart already persists to `localStorage` key `dp_cart` via
+  `CartContext.jsx` — popup reads that directly, no data passing needed.
+- In `Navbar.jsx`, change the cart button to call:
+  `window.open('/cart-popup', 'dp_cart', 'width=400,height=620,resizable=yes')`
+  directly in the click handler (not after any await/async).
+- Remove `cartOpen` state + `<CartDrawer>` usage from `Home.jsx` and
+  `ProductDetails.jsx`. Delete `CartDrawer.jsx` once replaced.
+- Popup's Checkout button navigates the popup itself to `/checkout`.
+- If popup is blocked, show inline fallback: "Please allow popups" +
+  a normal `<Link to="/cart-popup">`.
+- Add a `storage` event listener in `CartContext.jsx` so the main
+  window's cart badge count updates live if items change in the popup.
+
+## 2. Remaining Admin Image Uploads
+Follow the exact same pattern already used for Hero/Category/Brand/
+Favicon images (`ImageUploadField` + `site_settings` key/value, merge on
+save). Add these to Settings:
+
+- **Product placeholders**: 3 uploads (skin/hair/perfumes) — keys
+  `placeholder_img_skin`, `placeholder_img_hair`, `placeholder_img_perfumes`.
+  Used as fallback in `ProductCard.jsx` / `ProductDetails.jsx` when a
+  product has no image.
+- **Logo**: toggle "Use image logo" + upload (`logo_url`). When on,
+  `Navbar.jsx` shows the image instead of the current text logo ("Dr."/"Dreamer").
+- **Social share image**: upload (`social_share_image`), injected as
+  `og:image` / `twitter:image` meta tags on load (same pattern as the
+  existing favicon-updater in `App.jsx`).
+
+Every new field must default to the current hardcoded look if nothing is
+uploaded — fresh install must look identical to today.
+
+## Constraints
+- Don't modify payments/checkout/theme/coupons/analytics.
+- Test: cart popup opens, syncs with main window, checkout works from it.
+  Each new image uploads, shows on the live site, and falls back cleanly
+  when cleared. No console errors.

@@ -7,7 +7,6 @@ import Testimonials from '../components/Testimonials';
 import Newsletter from '../components/Newsletter';
 import ProductCard from '../components/ProductCard';
 import EnquiryModal from '../components/EnquiryModal';
-import CartDrawer from '../components/CartDrawer';
 import { api } from '../lib/api';
 
 export default function Home() {
@@ -19,7 +18,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [enquiryProduct, setEnquiryProduct] = useState(null);
-  const [cartOpen, setCartOpen] = useState(false);
   const [settings, setSettings] = useState({});
   const [showFilters, setShowFilters] = useState(false);
 
@@ -63,8 +61,7 @@ export default function Home() {
 
   return (
     <div>
-      <Navbar active={filter} onFilter={setFilter} onCartOpen={() => setCartOpen(true)} />
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+      <Navbar active={filter} onFilter={setFilter} />
       <Hero />
 
       <div id="categories">

@@ -18,6 +18,8 @@ function reducer(state, action) {
         ? { ...i, quantity: Math.max(1, action.qty) } : i);
     case 'CLEAR':
       return [];
+    case 'REPLACE':
+      return action.items;
     default:
       return state;
   }
@@ -32,6 +34,19 @@ export function CartProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('dp_cart', JSON.stringify(items));
   }, [items]);
+
+  // Sync cart badge if popup window changes cart
+  useEffect(() => {
+    function onStorage(e) {
+      if (e.key !== 'dp_cart') return;
+      try {
+        const updated = JSON.parse(e.newValue || '[]');
+        dispatch({ type: 'REPLACE', items: updated });
+      } catch {}
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const total = items.reduce((s, i) => s + i.product.price * i.quantity, 0);
   const count = items.reduce((s, i) => s + i.quantity, 0);
