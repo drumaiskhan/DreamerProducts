@@ -64,6 +64,9 @@ export default function AdminLogin() {
           <div className="field">
             <label htmlFor="password">Password</label>
             <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" />
+            <div style={{ textAlign: 'right', marginTop: 4 }}>
+              <a href="/forgot-password" style={{ fontSize: 12, color: 'var(--ink-muted)' }}>Forgot password?</a>
+            </div>
           </div>
 
           <button className="btn btn-primary login-btn" disabled={loading}>

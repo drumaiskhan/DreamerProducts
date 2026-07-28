@@ -43,6 +43,9 @@ export default function Login() {
         <div className="field">
           <label htmlFor="password">Password</label>
           <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
+          <div style={{ textAlign: 'right', marginTop: 2 }}>
+            <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Forgot password?</Link>
+          </div>
         </div>
 
         <button className="btn btn-primary auth-btn" disabled={loading}>

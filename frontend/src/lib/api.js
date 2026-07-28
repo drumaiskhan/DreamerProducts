@@ -192,11 +192,80 @@ export const api = {
     }).then(handle),
 
   // ── Users (admin) ──
-  getAdminUsers: () =>
-    fetch(`${API_BASE}/api/admin/users`, { headers: adminHeaders() }).then(handle),
+  getAdminUsers: (params) => {
+    const q = new URLSearchParams(params || {}).toString();
+    return fetch(`${API_BASE}/api/admin/users${q ? `?${q}` : ''}`, { headers: adminHeaders() }).then(handle);
+  },
 
   deleteUser: (id) =>
     fetch(`${API_BASE}/api/admin/users/${id}`, {
       method: 'DELETE', headers: adminHeaders()
     }).then(handle),
+
+  // ── Orders (user) ──
+  getMyOrders: () =>
+    fetch(`${API_BASE}/api/orders/mine`, { headers: userHeaders() }).then(handle),
+
+  // ── Products with filters ──
+  getProductsFiltered: (params) => {
+    const q = new URLSearchParams(params || {}).toString();
+    return fetch(`${API_BASE}/api/products${q ? `?${q}` : ''}`).then(handle);
+  },
+
+  // ── Forgot / reset password ──
+  forgotPassword: (email) =>
+    fetch(`${API_BASE}/api/auth/forgot-password`, {
+      method: 'POST', headers: json(),
+      body: JSON.stringify({ email })
+    }).then(handle),
+
+  resetPassword: (token, password) =>
+    fetch(`${API_BASE}/api/auth/reset-password`, {
+      method: 'POST', headers: json(),
+      body: JSON.stringify({ token, password })
+    }).then(handle),
+
+  // ── Coupons (public) ──
+  validateCoupon: (code, order_total) =>
+    fetch(`${API_BASE}/api/coupons/validate`, {
+      method: 'POST', headers: json(),
+      body: JSON.stringify({ code, order_total })
+    }).then(handle),
+
+  // ── Coupons (admin) ──
+  getAdminCoupons: () =>
+    fetch(`${API_BASE}/api/admin/coupons`, { headers: adminHeaders() }).then(handle),
+
+  createCoupon: (data) =>
+    fetch(`${API_BASE}/api/admin/coupons`, {
+      method: 'POST', headers: { ...json(), ...adminHeaders() },
+      body: JSON.stringify(data)
+    }).then(handle),
+
+  updateCoupon: (id, data) =>
+    fetch(`${API_BASE}/api/admin/coupons/${id}`, {
+      method: 'PUT', headers: { ...json(), ...adminHeaders() },
+      body: JSON.stringify(data)
+    }).then(handle),
+
+  deleteCoupon: (id) =>
+    fetch(`${API_BASE}/api/admin/coupons/${id}`, {
+      method: 'DELETE', headers: adminHeaders()
+    }).then(handle),
+
+  // ── Admin orders (paginated) ──
+  getAdminOrders: (params) => {
+    const q = new URLSearchParams(params || {}).toString();
+    return fetch(`${API_BASE}/api/admin/orders${q ? `?${q}` : ''}`, { headers: adminHeaders() }).then(handle);
+  },
+
+  updateOrderPayment: (id, payment_status) =>
+    fetch(`${API_BASE}/api/admin/orders/${id}/payment`, {
+      method: 'PUT', headers: { ...json(), ...adminHeaders() },
+      body: JSON.stringify({ payment_status })
+    }).then(handle),
+
+  // ── Admin analytics ──
+  getAnalytics: (days) =>
+    fetch(`${API_BASE}/api/admin/analytics${days ? `?days=${days}` : ''}`, { headers: adminHeaders() }).then(handle),
 };

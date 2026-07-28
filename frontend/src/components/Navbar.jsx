@@ -73,6 +73,7 @@ export default function Navbar({ active, onFilter, onCartOpen }) {
           {user ? (
             <div className="nav-user">
               <span className="nav-user-name">Hi, {user.name.split(' ')[0]}</span>
+              <Link to="/my-orders" className="nav-ghost">Orders</Link>
               <button className="nav-ghost" onClick={handleLogout}>Sign out</button>
             </div>
           ) : (
@@ -108,7 +109,10 @@ export default function Navbar({ active, onFilter, onCartOpen }) {
           ))}
           <div className="nav-mob-divider" />
           {user ? (
-            <button className="nav-mob-link" onClick={() => { handleLogout(); setMenuOpen(false); }}>Sign out</button>
+            <>
+              <Link to="/my-orders" className="nav-mob-link" onClick={() => setMenuOpen(false)}>My Orders</Link>
+              <button className="nav-mob-link" onClick={() => { handleLogout(); setMenuOpen(false); }}>Sign out</button>
+            </>
           ) : (
             <>
               <Link to="/contact" className="nav-mob-link" onClick={() => setMenuOpen(false)}>Contact Us</Link>

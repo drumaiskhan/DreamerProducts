@@ -130,6 +130,46 @@ export async function initDb() {
     UPDATE reviews SET status = CASE WHEN approved THEN 'approved' ELSE 'pending' END
     WHERE status = 'pending' AND approved = true
   `).catch(() => {});
+
+  // ── New feature migrations ────────────────────────────────────
+  // Payment & coupon fields on orders
+  const orderMigrations = [
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'cod'`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending'`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC NOT NULL DEFAULT 0`,
+  ];
+  for (const sql of orderMigrations) await pool.query(sql).catch(() => {});
+
+  // Coupons table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS coupons (
+      id SERIAL PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      type TEXT NOT NULL DEFAULT 'percent',
+      value NUMERIC NOT NULL,
+      min_order NUMERIC NOT NULL DEFAULT 0,
+      max_discount NUMERIC,
+      expiry TIMESTAMPTZ,
+      usage_limit INTEGER,
+      used_count INTEGER NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {});
+
+  // Password reset tokens
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      account_type TEXT NOT NULL DEFAULT 'user',
+      token TEXT UNIQUE NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {});
 }
 
 export async function seedAdmin(email, password) {

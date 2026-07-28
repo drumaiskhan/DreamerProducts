@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
@@ -99,6 +100,46 @@ async function sendOrderEmail(order) {
   }
 }
 
+// ─── Email: order status notification to customer ─────────────
+async function sendStatusEmail(order) {
+  if (!mailer || !order.email) return;
+  const msgs = {
+    Confirmed: 'Great news! Your order has been confirmed and is being prepared.',
+    Shipped:   'Your order is on its way! We\'ll notify you when it\'s delivered.',
+    Completed: 'Your order has been delivered. We hope you love it! 🌸',
+    Cancelled: 'Your order has been cancelled. If you have questions, please contact us.',
+  };
+  const msg = msgs[order.status];
+  if (!msg) return;
+  try {
+    const items = Array.isArray(order.items) ? order.items : JSON.parse(order.items || '[]');
+    const itemsText = items.map(i => `• ${i.name} × ${i.quantity}`).join('\n');
+    await mailer.sendMail({
+      from: process.env.EMAIL_USER,
+      to: order.email,
+      subject: `Order #${order.id} — ${order.status} | Dreamer Products`,
+      text: `Hi ${order.customer_name},\n\n${msg}\n\nOrder #${order.id}\n${itemsText}\n\nTotal: Rs ${Number(order.total).toLocaleString()}\n\nThank you for shopping with Dr. Dreamer!\n— The Dreamer Products Team`,
+    });
+  } catch (e) { console.error('Status email error:', e.message); }
+}
+
+// ─── Coupon validation helper ─────────────────────────────────
+async function validateCoupon(code, orderSubtotal) {
+  if (!code) return { error: 'No coupon code provided' };
+  const { rows } = await pool.query(
+    `SELECT * FROM coupons WHERE UPPER(code) = UPPER($1) AND active = true`, [code]
+  );
+  const c = rows[0];
+  if (!c) return { error: 'Invalid coupon code' };
+  if (c.expiry && new Date(c.expiry) < new Date()) return { error: 'This coupon has expired' };
+  if (c.usage_limit && c.used_count >= c.usage_limit) return { error: 'This coupon has reached its usage limit' };
+  if (c.min_order && orderSubtotal < parseFloat(c.min_order)) return { error: `Minimum order of Rs ${Number(c.min_order).toLocaleString()} required for this coupon` };
+  let discount = c.type === 'percent' ? (orderSubtotal * parseFloat(c.value)) / 100 : parseFloat(c.value);
+  if (c.max_discount) discount = Math.min(discount, parseFloat(c.max_discount));
+  discount = Math.min(discount, orderSubtotal);
+  return { coupon: c, discount: Math.round(discount * 100) / 100 };
+}
+
 // ─── App ──────────────────────────────────────────────────────
 const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
@@ -153,29 +194,39 @@ app.post('/api/user/login', async (req, res) => {
 // ── Products (public) ────────────────────────────────────────
 app.get('/api/products', async (req, res) => {
   try {
-    const { category } = req.query;
-    const valid = ['skin', 'hair', 'perfumes'];
-    const result = valid.includes(category)
-      ? await pool.query(`
-          SELECT p.*,
-            COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0) AS avg_rating,
-            COUNT(r.id)::int AS review_count
-          FROM products p
-          LEFT JOIN reviews r ON r.product_id = p.id AND r.approved = true
-          WHERE p.category = $1
-          GROUP BY p.id
-          ORDER BY p.created_at DESC
-        `, [category])
-      : await pool.query(`
-          SELECT p.*,
-            COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0) AS avg_rating,
-            COUNT(r.id)::int AS review_count
-          FROM products p
-          LEFT JOIN reviews r ON r.product_id = p.id AND r.approved = true
-          GROUP BY p.id
-          ORDER BY p.created_at DESC
-        `);
-    res.json(result.rows);
+    const { category, sort, min_price, max_price, page, limit } = req.query;
+    const validCats = ['skin', 'hair', 'perfumes'];
+    const conditions = []; const params = [];
+
+    if (validCats.includes(category)) { params.push(category); conditions.push(`p.category = $${params.length}`); }
+    if (min_price) { params.push(parseFloat(min_price)); conditions.push(`p.price >= $${params.length}`); }
+    if (max_price) { params.push(parseFloat(max_price)); conditions.push(`p.price <= $${params.length}`); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const orderBy = sort === 'price_asc' ? 'p.price ASC'
+      : sort === 'price_desc' ? 'p.price DESC'
+      : sort === 'rating' ? 'avg_rating DESC, p.created_at DESC'
+      : 'p.created_at DESC';
+
+    const baseQuery = `
+      SELECT p.*,
+        COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0) AS avg_rating,
+        COUNT(r.id)::int AS review_count
+      FROM products p
+      LEFT JOIN reviews r ON r.product_id = p.id AND r.approved = true
+      ${where} GROUP BY p.id ORDER BY ${orderBy}`;
+
+    if (page || limit) {
+      const lim = Math.min(parseInt(limit) || 20, 100);
+      const pg  = Math.max(parseInt(page) || 1, 1);
+      const { rows: ct } = await pool.query(`SELECT COUNT(DISTINCT p.id) FROM products p ${where}`, params);
+      const total = parseInt(ct[0].count);
+      const pagParams = [...params, lim, (pg - 1) * lim];
+      const { rows } = await pool.query(`${baseQuery} LIMIT $${pagParams.length - 1} OFFSET $${pagParams.length}`, pagParams);
+      return res.json({ products: rows, total, page: pg, pages: Math.ceil(total / lim), limit: lim });
+    }
+    const { rows } = await pool.query(baseQuery, params);
+    res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -192,6 +243,52 @@ app.get('/api/products/:id', async (req, res) => {
     `, [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
     res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Forgot / reset password ───────────────────────────────────
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email required' });
+    // Always respond success to avoid email enumeration
+    res.json({ success: true, message: 'If this email is registered, a reset link has been sent.' });
+    const { rows: users } = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const { rows: admins } = await pool.query('SELECT id FROM admins WHERE email = $1', [email]);
+    const account = users[0] ? 'user' : admins[0] ? 'admin' : null;
+    if (!account || !mailer) return;
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await pool.query('UPDATE password_resets SET used = true WHERE email = $1 AND used = false', [email]);
+    await pool.query('INSERT INTO password_resets (email, account_type, token, expires_at) VALUES ($1,$2,$3,$4)', [email, account, token, expiresAt]);
+    const base = process.env.FRONTEND_URL || process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000';
+    const resetUrl = `${base}/reset-password?token=${token}`;
+    await mailer.sendMail({
+      from: process.env.EMAIL_USER, to: email,
+      subject: 'Reset your Dreamer Products password',
+      text: `Hi,\n\nYou requested a password reset. Use this link to set a new password (expires in 1 hour):\n\n${resetUrl}\n\nIf you didn't request this, you can ignore this email.\n\n— Dr. Dreamer`,
+    });
+  } catch (err) { console.error('Forgot password error:', err.message); }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Token and new password required' });
+    if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    const { rows } = await pool.query(
+      'SELECT * FROM password_resets WHERE token = $1 AND used = false AND expires_at > NOW()', [token]
+    );
+    if (!rows[0]) return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+    const reset = rows[0];
+    const hash = bcrypt.hashSync(password, 10);
+    if (reset.account_type === 'admin') {
+      await pool.query('UPDATE admins SET password_hash = $1 WHERE email = $2', [hash, reset.email]);
+    } else {
+      await pool.query('UPDATE users SET password_hash = $1 WHERE email = $2', [hash, reset.email]);
+    }
+    await pool.query('UPDATE password_resets SET used = true WHERE token = $1', [token]);
+    res.json({ success: true, message: 'Password updated successfully' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -253,25 +350,79 @@ app.delete('/api/admin/products/:id', requireAdmin, async (req, res) => {
 // ── Orders ───────────────────────────────────────────────────
 app.post('/api/orders', optionalUser, async (req, res) => {
   try {
-    const { customer_name, email, phone, address, city, notes, items, total, delivery_charge } = req.body;
+    const { customer_name, email, phone, address, city, notes, items, total, delivery_charge, payment_method, coupon_code } = req.body;
     if (!customer_name || !email || !phone || !address || !city)
       return res.status(400).json({ error: 'Please fill in all required fields' });
     if (!items || items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
+
+    // Stock check
+    for (const item of items) {
+      const { rows: pr } = await pool.query('SELECT name, stock FROM products WHERE id = $1', [item.id]);
+      if (!pr[0]) return res.status(400).json({ error: `Product not found: ${item.name}` });
+      if (pr[0].stock < item.quantity) return res.status(400).json({ error: `Only ${pr[0].stock} left of "${pr[0].name}"` });
+    }
+
+    // Coupon validation
+    let discount_amount = 0; let validated_coupon = null;
+    if (coupon_code) {
+      const subtotal = parseFloat(total) - parseFloat(delivery_charge || 0);
+      const result = await validateCoupon(coupon_code, subtotal);
+      if (result.error) return res.status(400).json({ error: result.error });
+      discount_amount = result.discount;
+      validated_coupon = result.coupon;
+    }
+
+    const finalTotal = Math.max(0, parseFloat(total) - discount_amount);
+    const method = payment_method || 'cod';
+
     const { rows } = await pool.query(
-      `INSERT INTO orders (user_id,customer_name,email,phone,address,city,notes,items,total,delivery_charge)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [req.user?.id||null, customer_name, email, phone, address, city, notes||'', JSON.stringify(items), parseFloat(total), parseFloat(delivery_charge||0)]
+      `INSERT INTO orders (user_id,customer_name,email,phone,address,city,notes,items,total,delivery_charge,payment_method,payment_status,coupon_code,discount_amount)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+      [req.user?.id||null, customer_name, email, phone, address, city, notes||'',
+       JSON.stringify(items), finalTotal, parseFloat(delivery_charge||0),
+       method, 'pending', validated_coupon?.code||null, discount_amount]
     );
     const order = rows[0];
+
+    // Decrement stock
+    for (const item of items) {
+      await pool.query('UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id = $2', [item.quantity, item.id]);
+    }
+    // Increment coupon usage
+    if (validated_coupon) {
+      await pool.query('UPDATE coupons SET used_count = used_count + 1 WHERE id = $1', [validated_coupon.id]);
+    }
+
     sendOrderEmail(order);
     res.status(201).json(order);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// User order history
+app.get('/api/orders/mine', requireUser, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC', [req.user.id]);
+    res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Orders (admin) ───────────────────────────────────────────
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
+    const { page, limit, status } = req.query;
+    const conditions = []; const params = [];
+    if (status) { params.push(status); conditions.push(`status = $${params.length}`); }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    if (page || limit) {
+      const lim = Math.min(parseInt(limit) || 20, 100);
+      const pg  = Math.max(parseInt(page) || 1, 1);
+      const { rows: ct } = await pool.query(`SELECT COUNT(*) FROM orders ${where}`, params);
+      const total = parseInt(ct[0].count);
+      const p2 = [...params, lim, (pg - 1) * lim];
+      const { rows } = await pool.query(`SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT $${p2.length - 1} OFFSET $${p2.length}`, p2);
+      return res.json({ orders: rows, total, page: pg, pages: Math.ceil(total / lim), limit: lim });
+    }
+    const { rows } = await pool.query(`SELECT * FROM orders ${where} ORDER BY created_at DESC`, params);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -281,10 +432,28 @@ app.put('/api/admin/orders/:id/status', requireAdmin, async (req, res) => {
     const { status } = req.body;
     const valid = ['Pending','Confirmed','Shipped','Completed','Cancelled'];
     if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
-    const { rows } = await pool.query(
-      'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *',
-      [status, req.params.id]
-    );
+    const { rows: ex } = await pool.query('SELECT * FROM orders WHERE id = $1', [req.params.id]);
+    if (!ex[0]) return res.status(404).json({ error: 'Order not found' });
+    const prev = ex[0];
+    const items = Array.isArray(prev.items) ? prev.items : JSON.parse(prev.items || '[]');
+    // Stock adjustments
+    if (prev.status !== 'Cancelled' && status === 'Cancelled') {
+      for (const item of items) await pool.query('UPDATE products SET stock = stock + $1 WHERE id = $2', [item.quantity, item.id]);
+    } else if (prev.status === 'Cancelled' && status !== 'Cancelled') {
+      for (const item of items) await pool.query('UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id = $2', [item.quantity, item.id]);
+    }
+    const { rows } = await pool.query('UPDATE orders SET status = $1 WHERE id = $2 RETURNING *', [status, req.params.id]);
+    sendStatusEmail(rows[0]);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/orders/:id/payment', requireAdmin, async (req, res) => {
+  try {
+    const { payment_status } = req.body;
+    const valid = ['pending', 'paid', 'failed', 'refunded'];
+    if (!valid.includes(payment_status)) return res.status(400).json({ error: 'Invalid payment status' });
+    const { rows } = await pool.query('UPDATE orders SET payment_status = $1 WHERE id = $2 RETURNING *', [payment_status, req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Order not found' });
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -292,8 +461,13 @@ app.put('/api/admin/orders/:id/status', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT id FROM orders WHERE id = $1', [req.params.id]);
+    const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Order not found' });
+    const order = rows[0];
+    if (order.status !== 'Cancelled') {
+      const items = Array.isArray(order.items) ? order.items : JSON.parse(order.items || '[]');
+      for (const item of items) await pool.query('UPDATE products SET stock = stock + $1 WHERE id = $2', [item.quantity, item.id]);
+    }
     await pool.query('DELETE FROM orders WHERE id = $1', [req.params.id]);
     res.json({ success: true, message: 'Order deleted successfully' });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -559,6 +733,68 @@ app.post('/api/admin/reviews/bulk', requireAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Coupons (public) ─────────────────────────────────────────
+app.post('/api/coupons/validate', async (req, res) => {
+  try {
+    const { code, order_total } = req.body;
+    if (!code) return res.status(400).json({ error: 'Coupon code required' });
+    const result = await validateCoupon(code, parseFloat(order_total) || 0);
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json({ discount: result.discount, coupon: { code: result.coupon.code, type: result.coupon.type, value: result.coupon.value } });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Coupons (admin) ───────────────────────────────────────────
+app.get('/api/admin/coupons', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM coupons ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/coupons', requireAdmin, async (req, res) => {
+  try {
+    const { code, type, value, min_order, max_discount, expiry, usage_limit, active } = req.body;
+    if (!code || !value) return res.status(400).json({ error: 'Code and value required' });
+    if (!['percent','fixed'].includes(type || 'percent')) return res.status(400).json({ error: 'Type must be percent or fixed' });
+    const { rows } = await pool.query(
+      `INSERT INTO coupons (code,type,value,min_order,max_discount,expiry,usage_limit,active)
+       VALUES (UPPER($1),$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [code, type||'percent', parseFloat(value), parseFloat(min_order||0),
+       max_discount ? parseFloat(max_discount) : null, expiry||null,
+       usage_limit ? parseInt(usage_limit) : null, active !== false && active !== 'false']
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Coupon code already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/coupons/:id', requireAdmin, async (req, res) => {
+  try {
+    const { code, type, value, min_order, max_discount, expiry, usage_limit, active } = req.body;
+    const { rows } = await pool.query(
+      `UPDATE coupons SET code=UPPER($1),type=$2,value=$3,min_order=$4,max_discount=$5,expiry=$6,usage_limit=$7,active=$8 WHERE id=$9 RETURNING *`,
+      [code, type, parseFloat(value), parseFloat(min_order||0),
+       max_discount ? parseFloat(max_discount) : null, expiry||null,
+       usage_limit ? parseInt(usage_limit) : null, active !== false && active !== 'false', req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Coupon not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Coupon code already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/coupons/:id', requireAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM coupons WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Contact form ──────────────────────────────────────────────
 app.post('/api/contact', async (req, res) => {
   try {
@@ -624,12 +860,41 @@ app.put('/api/admin/settings', requireAdmin,
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Admin analytics ───────────────────────────────────────────
+app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days) || 30, 7), 365);
+    const [rev, trends, topProds, lowStock, avgVal] = await Promise.all([
+      pool.query(`SELECT COALESCE(SUM(total),0)::numeric AS total_revenue, COUNT(*)::int AS total_orders FROM orders WHERE status != 'Cancelled' AND created_at > NOW() - ($1 * INTERVAL '1 day')`, [days]),
+      pool.query(`SELECT DATE(created_at)::text AS date, COALESCE(SUM(total),0)::numeric AS revenue, COUNT(*)::int AS orders FROM orders WHERE status != 'Cancelled' AND created_at > NOW() - ($1 * INTERVAL '1 day') GROUP BY DATE(created_at) ORDER BY date ASC`, [days]),
+      pool.query(`SELECT p.id, p.name, p.category, p.stock, COALESCE(SUM((item->>'quantity')::int),0)::int AS total_sold, COALESCE(SUM((item->>'price')::numeric*(item->>'quantity')::int),0)::numeric AS total_revenue FROM products p LEFT JOIN orders o ON o.status != 'Cancelled' AND o.created_at > NOW() - ($1 * INTERVAL '1 day') LEFT JOIN jsonb_array_elements(CASE WHEN o.items IS NULL THEN '[]'::jsonb ELSE o.items::jsonb END) AS item ON (item->>'id')::int = p.id GROUP BY p.id ORDER BY total_sold DESC LIMIT 10`, [days]),
+      pool.query(`SELECT id, name, category, stock FROM products WHERE stock <= 10 ORDER BY stock ASC LIMIT 20`),
+      pool.query(`SELECT COALESCE(ROUND(AVG(total)::numeric,0),0) AS avg_order_value FROM orders WHERE status != 'Cancelled' AND created_at > NOW() - ($1 * INTERVAL '1 day')`, [days]),
+    ]);
+    res.json({
+      total_revenue: parseFloat(rev.rows[0].total_revenue),
+      total_orders: rev.rows[0].total_orders,
+      avg_order_value: parseFloat(avgVal.rows[0].avg_order_value),
+      revenue_by_day: trends.rows,
+      top_products: topProds.rows,
+      low_stock: lowStock.rows,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Users (admin) ─────────────────────────────────────────────
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT id, name, email, phone, address, created_at FROM users ORDER BY created_at DESC'
-    );
+    const { page, limit } = req.query;
+    if (page || limit) {
+      const lim = Math.min(parseInt(limit) || 20, 100);
+      const pg  = Math.max(parseInt(page) || 1, 1);
+      const { rows: ct } = await pool.query('SELECT COUNT(*) FROM users');
+      const total = parseInt(ct[0].count);
+      const { rows } = await pool.query('SELECT id,name,email,phone,address,created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2', [lim, (pg-1)*lim]);
+      return res.json({ users: rows, total, page: pg, pages: Math.ceil(total/lim), limit: lim });
+    }
+    const { rows } = await pool.query('SELECT id, name, email, phone, address, created_at FROM users ORDER BY created_at DESC');
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

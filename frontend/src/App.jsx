@@ -10,6 +10,9 @@ import Checkout from './pages/Checkout';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import Contact from './pages/Contact';
+import MyOrders from './pages/MyOrders';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageTransition from './components/PageTransition';
 import { api } from './lib/api';
@@ -73,6 +76,9 @@ export default function App() {
               <Route path="/checkout" element={<Checkout />} />
 
               <Route path="/contact" element={<Contact />} />
+              <Route path="/my-orders" element={<MyOrders />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               <Route 
                 path="/product/:id" 
