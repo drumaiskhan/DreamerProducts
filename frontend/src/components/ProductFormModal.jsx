@@ -1,17 +1,49 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { api } from '../lib/api';
 
 export default function ProductFormModal({ product, onClose, onSaved }) {
   const isEdit = Boolean(product);
+
+  // Parse existing images
+  const existingImages = (() => {
+    if (!isEdit) return [];
+    try {
+      const parsed = Array.isArray(product.images)
+        ? product.images
+        : JSON.parse(product.images || '[]');
+      return parsed.length > 0 ? parsed : (product.image_url ? [product.image_url] : []);
+    } catch {
+      return product.image_url ? [product.image_url] : [];
+    }
+  })();
+
   const [name, setName] = useState(product?.name || '');
   const [category, setCategory] = useState(product?.category || 'skin');
   const [description, setDescription] = useState(product?.description || '');
   const [price, setPrice] = useState(product?.price ?? '');
   const [stock, setStock] = useState(product?.stock ?? 0);
   const [featured, setFeatured] = useState(Boolean(product?.featured));
-  const [files, setFiles] = useState([]);
+  const [newFiles, setNewFiles] = useState([]);
+  const [newPreviews, setNewPreviews] = useState([]);
+  const [keptImages, setKeptImages] = useState(existingImages); // existing images to keep
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const fileRef = useRef();
+
+  function handleNewFiles(e) {
+    const files = Array.from(e.target.files).slice(0, 10);
+    setNewFiles(files);
+    setNewPreviews(files.map(f => URL.createObjectURL(f)));
+  }
+
+  function removeNewFile(i) {
+    setNewFiles(prev => prev.filter((_, idx) => idx !== i));
+    setNewPreviews(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  function removeExistingImage(i) {
+    setKeptImages(prev => prev.filter((_, idx) => idx !== i));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -25,7 +57,14 @@ export default function ProductFormModal({ product, onClose, onSaved }) {
     formData.append('price', price);
     formData.append('stock', stock);
     formData.append('featured', featured);
-    files.forEach(f => formData.append('images', f));
+
+    if (newFiles.length > 0) {
+      // New files uploaded — they replace existing
+      newFiles.forEach(f => formData.append('images', f));
+    } else if (isEdit) {
+      // Pass the kept images so backend can filter out removed ones
+      formData.append('keep_images', JSON.stringify(keptImages));
+    }
 
     try {
       if (isEdit) {
@@ -108,15 +147,55 @@ export default function ProductFormModal({ product, onClose, onSaved }) {
           />
         </div>
 
+        {/* Existing images (edit mode only) */}
+        {isEdit && existingImages.length > 0 && (
+          <div className="field">
+            <label>Current images {keptImages.length === 0 ? '(all removed)' : `(${keptImages.length} kept)`}</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+              {existingImages.map((src, i) => {
+                const imgSrc = src.startsWith('http') ? src : `${api.base}${src}`;
+                const kept = keptImages.includes(src);
+                return (
+                  <div key={i} style={{ position: 'relative', opacity: kept ? 1 : 0.35 }}>
+                    <img src={imgSrc} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: `2px solid ${kept ? 'var(--border)' : '#ef4444'}` }} />
+                    <button
+                      type="button"
+                      onClick={() => kept ? removeExistingImage(existingImages.indexOf(src)) : setKeptImages(prev => [...prev, src])}
+                      title={kept ? 'Remove this image' : 'Restore this image'}
+                      style={{ position: 'absolute', top: -6, right: -6, background: kept ? '#ef4444' : '#16a34a', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+                    >
+                      {kept ? '✕' : '↩'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--ink-soft)', margin: '6px 0 0' }}>Click ✕ to remove an image. Upload new images below to replace all.</p>
+          </div>
+        )}
+
+        {/* New image uploads */}
         <div className="field">
-          <label htmlFor="image">Product images {isEdit && '(leave empty to keep current)'}</label>
-          <input
-            id="image"
-            type="file"
-            accept="image/png, image/jpeg, image/webp"
-            multiple
-            onChange={(e) => setFiles(Array.from(e.target.files))}
-          />
+          <label>
+            {isEdit ? 'Upload new images (replaces all existing)' : 'Product images'}
+          </label>
+          <button type="button" className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 13, marginBottom: newPreviews.length ? 8 : 0 }} onClick={() => fileRef.current?.click()}>
+            📎 Choose images
+          </button>
+          <input ref={fileRef} id="image" type="file" accept="image/png, image/jpeg, image/webp" multiple style={{ display: 'none' }} onChange={handleNewFiles} />
+          {newPreviews.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+              {newPreviews.map((src, i) => (
+                <div key={i} style={{ position: 'relative' }}>
+                  <img src={src} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                  <button type="button" onClick={() => removeNewFile(i)}
+                    style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <button className="btn btn-primary submit-btn" disabled={saving}>
@@ -143,6 +222,9 @@ export default function ProductFormModal({ product, onClose, onSaved }) {
           width: 100%;
           max-width: 460px;
           position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
         }
         .close {
           position: absolute;
@@ -152,6 +234,7 @@ export default function ProductFormModal({ product, onClose, onSaved }) {
           border: none;
           font-size: 26px;
           color: var(--ink-soft);
+          cursor: pointer;
         }
         .modal h3 { font-size: 22px; margin-bottom: 20px; }
         .form-error {

@@ -6,7 +6,7 @@ import ProductReviews from "../components/ProductReviews";
 import { useCart } from "../context/CartContext";
 import { api } from "../lib/api";
 
-const PLACEHOLDERS = {
+const DEFAULT_PLACEHOLDERS = {
   skin: '/product-skin.jpg',
   hair: '/product-hair.jpg',
   perfumes: '/product-perfume.jpg',
@@ -39,7 +39,6 @@ export default function ProductDetails() {
   const [added, setAdded] = useState(false);
   const [enquiryProduct, setEnquiryProduct] = useState(null);
   const [settings, setSettings] = useState({});
-  const [cartOpen, setCartOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -105,6 +104,11 @@ export default function ProductDetails() {
     .map(u => (u && u.startsWith('http')) ? u : (u ? `${api.base}${u}` : null))
     .filter(Boolean);
 
+  const PLACEHOLDERS = {
+    skin:     settings.placeholder_img_skin     || DEFAULT_PLACEHOLDERS.skin,
+    hair:     settings.placeholder_img_hair     || DEFAULT_PLACEHOLDERS.hair,
+    perfumes: settings.placeholder_img_perfumes || DEFAULT_PLACEHOLDERS.perfumes,
+  };
   const placeholder = PLACEHOLDERS[product.category] || PLACEHOLDERS.skin;
   const gallery = images.length > 0 ? images : [placeholder];
   const catLabel = product.category === 'skin' ? 'Skincare' : product.category === 'hair' ? 'Haircare' : 'Perfumes';
@@ -120,7 +124,7 @@ export default function ProductDetails() {
 
   return (
     <div className="pd-page">
-      <Navbar onCartOpen={() => setCartOpen(true)} />
+      <Navbar />
 
       <div className="container pd-crumb">
         <Link to="/">Shop</Link>

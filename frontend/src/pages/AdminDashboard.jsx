@@ -231,9 +231,12 @@ function ProductsTab({ navigate }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   function load() {
     setLoading(true);
+    setSelectedIds([]);
     api.getAdminProducts()
       .then(setProducts)
       .catch((err) => {
@@ -252,16 +255,42 @@ function ProductsTab({ navigate }) {
     catch (err) { alert(err.message); }
   }
 
+  async function handleBulkDelete() {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Delete ${selectedIds.length} product${selectedIds.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try { await api.bulkDeleteProducts(selectedIds); load(); }
+    catch (err) { alert(err.message); }
+    finally { setBulkDeleting(false); }
+  }
+
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.category.toLowerCase().includes(search.toLowerCase())
   );
+  const allSelected = filtered.length > 0 && filtered.every(p => selectedIds.includes(p.id));
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+  function toggleAll() {
+    setSelectedIds(allSelected ? [] : filtered.map(p => p.id));
+  }
 
   return (
     <>
       <div className="dash-toolbar">
         <h1>Products <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-soft)' }}>({filtered.length})</span></h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              style={{ fontSize: 13, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#fee2e2', color: '#b91c1c', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              {bulkDeleting ? 'Deleting…' : `🗑 Delete ${selectedIds.length} selected`}
+            </button>
+          )}
           <input
             placeholder="Search products…"
             value={search}
@@ -283,10 +312,16 @@ function ProductsTab({ navigate }) {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th></th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th></th></tr></thead>
+              <thead><tr>
+                <th><input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ cursor: 'pointer' }} title="Select all" /></th>
+                <th></th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th></th>
+              </tr></thead>
               <tbody>
                 {filtered.map((p) => (
-                  <tr key={p.id}>
+                  <tr key={p.id} style={{ background: selectedIds.includes(p.id) ? '#fef3f2' : undefined }}>
+                    <td style={{ width: 36 }}>
+                      <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleSelect(p.id)} style={{ cursor: 'pointer' }} />
+                    </td>
                     <td style={{ width: 60 }}>
                       {p.image_url ? (
                         <img className="thumb" src={p.image_url.startsWith('http') ? p.image_url : `${api.base}${p.image_url}`} alt="" />
@@ -339,10 +374,14 @@ function OrdersTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
+  const [payFilter, setPayFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   function load() {
     setLoading(true);
+    setSelectedIds([]);
     api.getAdminOrders().then(data => {
       setOrders(Array.isArray(data) ? data : data.orders || []);
     }).catch(err => setError(err.message)).finally(() => setLoading(false));
@@ -371,15 +410,40 @@ function OrdersTab() {
     } catch (err) { alert(err.message); }
   }
 
+  async function handleBulkDelete() {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Delete ${selectedIds.length} order${selectedIds.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try { await api.bulkDeleteOrders(selectedIds); load(); }
+    catch (err) { alert(err.message); }
+    finally { setBulkDeleting(false); }
+  }
+
   const filtered = orders
     .filter(o => filter === 'all' || o.status === filter)
+    .filter(o => payFilter === 'all' || (o.payment_status || 'pending') === payFilter)
     .filter(o => !search || o.customer_name.toLowerCase().includes(search.toLowerCase()) || o.email.toLowerCase().includes(search.toLowerCase()) || String(o.id).includes(search));
+
+  const allSelected = filtered.length > 0 && filtered.every(o => selectedIds.includes(o.id));
+  function toggleSelect(id) { setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }
+  function toggleAll() { setSelectedIds(allSelected ? [] : filtered.map(o => o.id)); }
+
+  // COD summary (from all orders, not filtered)
+  const totalOrders = orders.length;
+  const pendingCash = orders.filter(o => (o.payment_status || 'pending') === 'pending' && o.status !== 'Cancelled').length;
+  const cashCollected = orders.filter(o => o.payment_status === 'paid').length;
 
   return (
     <>
       <div className="dash-toolbar">
         <h1>Orders <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-soft)' }}>({filtered.length})</span></h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {selectedIds.length > 0 && (
+            <button onClick={handleBulkDelete} disabled={bulkDeleting}
+              style={{ fontSize: 13, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#fee2e2', color: '#b91c1c', cursor: 'pointer', fontFamily: 'inherit' }}>
+              {bulkDeleting ? 'Deleting…' : `🗑 Delete ${selectedIds.length} selected`}
+            </button>
+          )}
           <input
             placeholder="Search name / email / #…"
             value={search}
@@ -390,24 +454,54 @@ function OrdersTab() {
             <option value="all">All statuses</option>
             {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+          <select value={payFilter} onChange={e => setPayFilter(e.target.value)} style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: 'inherit', background: '#fff', cursor: 'pointer' }}>
+            <option value="all">All payments</option>
+            <option value="pending">⏳ Pending cash</option>
+            <option value="paid">✅ Paid</option>
+          </select>
           <button className="btn-ghost" onClick={load} style={{ fontSize: 13 }}>↻ Refresh</button>
         </div>
       </div>
+
+      {/* COD Summary */}
+      {!loading && !error && (
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+          <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 18px', minWidth: 120 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '.05em' }}>Total Orders</p>
+            <p style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#0369A1' }}>{totalOrders}</p>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 18px', minWidth: 120 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '.05em' }}>Pending Cash</p>
+            <p style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#92400e' }}>{pendingCash}</p>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 18px', minWidth: 120 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '.05em' }}>Cash Collected</p>
+            <p style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#14532d' }}>{cashCollected}</p>
+          </div>
+        </div>
+      )}
+
       {loading && <p className="state-msg">Loading…</p>}
       {error && <p className="state-msg" style={{ color: '#b91c1c' }}>{error}</p>}
       {!loading && !error && (
         filtered.length === 0 ? (
-          <div className="dash-empty"><p className="dash-empty-icon">🛍</p><p>No orders {filter !== 'all' ? `with status "${filter}"` : 'yet'}.</p></div>
+          <div className="dash-empty"><p className="dash-empty-icon">🛍</p><p>No orders {filter !== 'all' ? `with status "${filter}"` : payFilter !== 'all' ? `with payment "${payFilter}"` : 'yet'}.</p></div>
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>#</th><th>Customer</th><th>Items</th><th>Total</th><th>Date</th><th>Order Status</th><th>Payment</th></tr></thead>
+              <thead><tr>
+                <th><input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ cursor: 'pointer' }} title="Select all" /></th>
+                <th>#</th><th>Customer</th><th>Items</th><th>Total</th><th>Date</th><th>Order Status</th><th>Payment</th>
+              </tr></thead>
               <tbody>
                 {filtered.map((o) => {
                   const items = Array.isArray(o.items) ? o.items : JSON.parse(o.items || '[]');
                   const pc = PAY_COLORS[o.payment_status] || PAY_COLORS.pending;
                   return (
-                    <tr key={o.id}>
+                    <tr key={o.id} style={{ background: selectedIds.includes(o.id) ? '#fef3f2' : undefined }}>
+                      <td style={{ width: 36 }}>
+                        <input type="checkbox" checked={selectedIds.includes(o.id)} onChange={() => toggleSelect(o.id)} style={{ cursor: 'pointer' }} />
+                      </td>
                       <td style={{ color: 'var(--ink-soft)', fontWeight: 700, fontSize: 13 }}>#{o.id}</td>
                       <td>
                         <p className="order-customer">{o.customer_name}</p>
@@ -418,9 +512,6 @@ function OrdersTab() {
                         {o.coupon_code && (
                           <p className="order-meta">🎟 {o.coupon_code} −Rs {Number(o.discount_amount).toLocaleString()}</p>
                         )}
-                        <p className="order-meta" style={{ textTransform: 'uppercase', fontSize: 11 }}>
-                          {o.payment_status === 'paid' ? '✅ Paid' : '⏳ Pending'}
-                        </p>
                       </td>
                       <td>
                         <div className="order-items-list">
@@ -437,21 +528,31 @@ function OrdersTab() {
                             {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                           {o.status === 'Cancelled' && (
-                            <button
-                              onClick={() => handleDelete(o.id)}
-                              style={{ padding: '4px 8px', fontSize: 12, background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
-                            >🗑 Delete</button>
+                            <button onClick={() => handleDelete(o.id)}
+                              style={{ padding: '4px 8px', fontSize: 12, background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>
+                              🗑 Delete
+                            </button>
                           )}
                         </div>
                       </td>
                       <td>
-                        <select
-                          value={o.payment_status || 'pending'}
-                          onChange={e => handlePayment(o.id, e.target.value)}
-                          style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 999, border: '1.5px solid transparent', cursor: 'pointer', fontFamily: 'inherit', outline: 'none', background: pc.bg, color: pc.color }}
-                        >
-                          {PAY_STATUSES.map(s => <option key={s} value={s} style={{ background: '#fff', color: '#000' }}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-                        </select>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+                          <select
+                            value={o.payment_status || 'pending'}
+                            onChange={e => handlePayment(o.id, e.target.value)}
+                            style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 999, border: '1.5px solid transparent', cursor: 'pointer', fontFamily: 'inherit', outline: 'none', background: pc.bg, color: pc.color }}
+                          >
+                            {PAY_STATUSES.map(s => <option key={s} value={s} style={{ background: '#fff', color: '#000' }}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                          </select>
+                          {(o.payment_status || 'pending') !== 'paid' && (
+                            <button
+                              onClick={() => handlePayment(o.id, 'paid')}
+                              style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: '1px solid #bbf7d0', background: '#dcfce7', color: '#14532d', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                            >
+                              ✓ Mark Cash Received
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -474,9 +575,12 @@ function ReviewsTab() {
   const [savingReply, setSavingReply] = useState({});
   const [filter, setFilter] = useState('all');
   const [showAdd, setShowAdd] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   function load() {
     setLoading(true);
+    setSelectedIds([]);
     api.getAdminReviews().then(r => { setReviews(r); setReplyDraft(Object.fromEntries(r.map(x => [x.id, x.reply || '']))); })
       .catch(err => setError(err.message)).finally(() => setLoading(false));
   }
@@ -495,6 +599,15 @@ function ReviewsTab() {
     catch (err) { alert(err.message); }
   }
 
+  async function handleBulkDelete() {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Delete ${selectedIds.length} review${selectedIds.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try { await api.bulkReviewAction(selectedIds, 'delete'); load(); }
+    catch (err) { alert(err.message); }
+    finally { setBulkDeleting(false); }
+  }
+
   async function handleReply(id) {
     setSavingReply(s => ({ ...s, [id]: true }));
     try {
@@ -509,12 +622,21 @@ function ReviewsTab() {
   }
 
   const filtered = filter === 'all' ? reviews : filter === 'approved' ? reviews.filter(r => r.approved) : reviews.filter(r => !r.approved);
+  const allSelected = filtered.length > 0 && filtered.every(r => selectedIds.includes(r.id));
+  function toggleSelect(id) { setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }
+  function toggleAll() { setSelectedIds(allSelected ? [] : filtered.map(r => r.id)); }
 
   return (
     <>
       <div className="dash-toolbar">
         <h1>Reviews <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-soft)' }}>({filtered.length})</span></h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {selectedIds.length > 0 && (
+            <button onClick={handleBulkDelete} disabled={bulkDeleting}
+              style={{ fontSize: 13, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#fee2e2', color: '#b91c1c', cursor: 'pointer', fontFamily: 'inherit' }}>
+              {bulkDeleting ? 'Deleting…' : `🗑 Delete ${selectedIds.length} selected`}
+            </button>
+          )}
           <select value={filter} onChange={e => setFilter(e.target.value)} style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: 'inherit', background: '#fff', cursor: 'pointer' }}>
             <option value="all">All reviews</option>
             <option value="pending">Pending approval</option>
@@ -536,10 +658,16 @@ function ReviewsTab() {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Customer</th><th>Rating</th><th>Review</th><th>Your Reply</th><th>Status</th><th></th></tr></thead>
+              <thead><tr>
+                <th><input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ cursor: 'pointer' }} title="Select all" /></th>
+                <th>Customer</th><th>Rating</th><th>Review</th><th>Your Reply</th><th>Status</th><th></th>
+              </tr></thead>
               <tbody>
                 {filtered.map((r) => (
-                  <tr key={r.id}>
+                  <tr key={r.id} style={{ background: selectedIds.includes(r.id) ? '#fef3f2' : undefined }}>
+                    <td style={{ width: 36 }}>
+                      <input type="checkbox" checked={selectedIds.includes(r.id)} onChange={() => toggleSelect(r.id)} style={{ cursor: 'pointer' }} />
+                    </td>
                     <td style={{ minWidth: 130 }}>
                       <p style={{ fontWeight: 600, margin: 0 }}>{r.customer_name}</p>
                       {r.email && <p style={{ fontSize: 12, color: 'var(--ink-soft)', margin: '2px 0 0' }}>{r.email}</p>}
@@ -744,9 +872,12 @@ function UsersTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   function load() {
     setLoading(true);
+    setSelectedIds([]);
     api.getAdminUsers().then(setUsers).catch(err => setError(err.message)).finally(() => setLoading(false));
   }
   useEffect(load, []);
@@ -757,6 +888,15 @@ function UsersTab() {
     catch (err) { alert(err.message); }
   }
 
+  async function handleBulkDelete() {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Delete ${selectedIds.length} customer account${selectedIds.length !== 1 ? 's' : ''}? Orders will remain but their logins will be removed.`)) return;
+    setBulkDeleting(true);
+    try { await api.bulkDeleteUsers(selectedIds); load(); }
+    catch (err) { alert(err.message); }
+    finally { setBulkDeleting(false); }
+  }
+
   const filtered = users.filter(u =>
     !search ||
     u.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -764,16 +904,28 @@ function UsersTab() {
     (u.phone && u.phone.includes(search))
   );
 
+  const allSelected = filtered.length > 0 && filtered.every(u => selectedIds.includes(u.id));
+  function toggleSelect(id) { setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }
+  function toggleAll() { setSelectedIds(allSelected ? [] : filtered.map(u => u.id)); }
+
   return (
     <>
       <div className="dash-toolbar">
         <h1>Customers <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-soft)' }}>({filtered.length})</span></h1>
-        <input
-          placeholder="Search name / email / phone…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: 'inherit', outline: 'none', width: 220 }}
-        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {selectedIds.length > 0 && (
+            <button onClick={handleBulkDelete} disabled={bulkDeleting}
+              style={{ fontSize: 13, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#fee2e2', color: '#b91c1c', cursor: 'pointer', fontFamily: 'inherit' }}>
+              {bulkDeleting ? 'Deleting…' : `🗑 Delete ${selectedIds.length} selected`}
+            </button>
+          )}
+          <input
+            placeholder="Search name / email / phone…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: 'inherit', outline: 'none', width: 220 }}
+          />
+        </div>
       </div>
       {loading && <p className="state-msg">Loading…</p>}
       {error && <p className="state-msg" style={{ color: '#b91c1c' }}>{error}</p>}
@@ -786,10 +938,16 @@ function UsersTab() {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Joined</th><th></th></tr></thead>
+              <thead><tr>
+                <th><input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ cursor: 'pointer' }} title="Select all" /></th>
+                <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Joined</th><th></th>
+              </tr></thead>
               <tbody>
                 {filtered.map((u) => (
-                  <tr key={u.id}>
+                  <tr key={u.id} style={{ background: selectedIds.includes(u.id) ? '#fef3f2' : undefined }}>
+                    <td style={{ width: 36 }}>
+                      <input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => toggleSelect(u.id)} style={{ cursor: 'pointer' }} />
+                    </td>
                     <td style={{ color: 'var(--ink-soft)', fontWeight: 700, fontSize: 13 }}>{u.id}</td>
                     <td><p className="user-name">{u.name}</p></td>
                     <td style={{ color: 'var(--ink-soft)', fontSize: 13 }}>{u.email}</td>
@@ -1268,15 +1426,20 @@ function SettingsTab() {
   const [error, setError] = useState('');
 
   // image files & previews
-  const [files, setFiles] = useState({ hero_image: null, cat_img_skin: null, cat_img_hair: null, cat_img_perfumes: null, brand_image: null, favicon_url: null });
-  const [previews, setPreviews] = useState({ hero_image: '', cat_img_skin: '', cat_img_hair: '', cat_img_perfumes: '', brand_image: '', favicon_url: '' });
+  const [files, setFiles] = useState({ hero_image: null, cat_img_skin: null, cat_img_hair: null, cat_img_perfumes: null, brand_image: null, favicon_url: null, logo_url: null, social_share_image: null, placeholder_img_skin: null, placeholder_img_hair: null, placeholder_img_perfumes: null });
+  const [previews, setPreviews] = useState({ hero_image: '', cat_img_skin: '', cat_img_hair: '', cat_img_perfumes: '', brand_image: '', favicon_url: '', logo_url: '', social_share_image: '', placeholder_img_skin: '', placeholder_img_hair: '', placeholder_img_perfumes: '' });
   const refs = {
-    hero_image:       useRef(),
-    cat_img_skin:     useRef(),
-    cat_img_hair:     useRef(),
-    cat_img_perfumes: useRef(),
-    brand_image:      useRef(),
-    favicon_url:      useRef(),
+    hero_image:              useRef(),
+    cat_img_skin:            useRef(),
+    cat_img_hair:            useRef(),
+    cat_img_perfumes:        useRef(),
+    brand_image:             useRef(),
+    favicon_url:             useRef(),
+    logo_url:                useRef(),
+    social_share_image:      useRef(),
+    placeholder_img_skin:    useRef(),
+    placeholder_img_hair:    useRef(),
+    placeholder_img_perfumes: useRef(),
   };
 
   useEffect(() => {
@@ -1285,12 +1448,17 @@ function SettingsTab() {
         setValues(prev => ({ ...DEFAULTS, ...prev, ...s }));
         setPreviews(p => ({
           ...p,
-          hero_image:       s.hero_image       || '',
-          cat_img_skin:     s.cat_img_skin     || CAT_DEFAULTS.skin,
-          cat_img_hair:     s.cat_img_hair     || CAT_DEFAULTS.hair,
-          cat_img_perfumes: s.cat_img_perfumes || CAT_DEFAULTS.perfumes,
-          brand_image:      s.brand_image      || '',
-          favicon_url:      s.favicon_url      || '',
+          hero_image:              s.hero_image              || '',
+          cat_img_skin:            s.cat_img_skin            || CAT_DEFAULTS.skin,
+          cat_img_hair:            s.cat_img_hair            || CAT_DEFAULTS.hair,
+          cat_img_perfumes:        s.cat_img_perfumes        || CAT_DEFAULTS.perfumes,
+          brand_image:             s.brand_image             || '',
+          favicon_url:             s.favicon_url             || '',
+          logo_url:                s.logo_url                || '',
+          social_share_image:      s.social_share_image      || '',
+          placeholder_img_skin:    s.placeholder_img_skin    || '',
+          placeholder_img_hair:    s.placeholder_img_hair    || '',
+          placeholder_img_perfumes: s.placeholder_img_perfumes || '',
         }));
       })
       .catch(err => setError(err.message))
@@ -1341,12 +1509,17 @@ function SettingsTab() {
       const updated = await api.updateSettings(fd);
       setValues(prev => ({ ...prev, ...updated }));
       setPreviews(p => ({
-        hero_image:       updated.hero_image       || p.hero_image,
-        cat_img_skin:     updated.cat_img_skin     || p.cat_img_skin,
-        cat_img_hair:     updated.cat_img_hair     || p.cat_img_hair,
-        cat_img_perfumes: updated.cat_img_perfumes || p.cat_img_perfumes,
-        brand_image:      updated.brand_image      || p.brand_image,
-        favicon_url:      updated.favicon_url      || p.favicon_url,
+        hero_image:              updated.hero_image              || p.hero_image,
+        cat_img_skin:            updated.cat_img_skin            || p.cat_img_skin,
+        cat_img_hair:            updated.cat_img_hair            || p.cat_img_hair,
+        cat_img_perfumes:        updated.cat_img_perfumes        || p.cat_img_perfumes,
+        brand_image:             updated.brand_image             || p.brand_image,
+        favicon_url:             updated.favicon_url             || p.favicon_url,
+        logo_url:                updated.logo_url                || p.logo_url,
+        social_share_image:      updated.social_share_image      || p.social_share_image,
+        placeholder_img_skin:    updated.placeholder_img_skin    || p.placeholder_img_skin,
+        placeholder_img_hair:    updated.placeholder_img_hair    || p.placeholder_img_hair,
+        placeholder_img_perfumes: updated.placeholder_img_perfumes || p.placeholder_img_perfumes,
       }));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -1578,6 +1751,78 @@ function SettingsTab() {
               hint="Square PNG or ICO · 64×64 px or larger"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Logo */}
+      <div className="settings-section">
+        <p className="settings-section-title">🏷 Brand Logo</p>
+        <p className="shint" style={{ marginBottom: 16 }}>Upload an image logo to replace the text "Dr. Dreamer" in the navbar. Requires Cloudinary.</p>
+        <div className="settings-grid">
+          <div className="sfield">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14, userSelect: 'none', marginBottom: 12 }}>
+              <input
+                type="checkbox"
+                checked={values.use_image_logo === 'true'}
+                onChange={e => set('use_image_logo', e.target.checked ? 'true' : 'false')}
+                style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--forest)' }}
+              />
+              Use image logo (replaces text logo in navbar)
+            </label>
+            <ImageUploadField
+              label="Logo image"
+              preview={previews.logo_url}
+              fileRef={refs.logo_url}
+              onChange={handleFileChange('logo_url')}
+              hint="PNG with transparent background recommended · max height ~40 px"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Social Share */}
+      <div className="settings-section">
+        <p className="settings-section-title">📤 Social Share Image</p>
+        <p className="shint" style={{ marginBottom: 16 }}>The image shown when your site is shared on social media (og:image / Twitter card). Recommended: 1200×630 px. Requires Cloudinary.</p>
+        <div className="settings-grid">
+          <div className="sfield">
+            <ImageUploadField
+              label="Social share image"
+              preview={previews.social_share_image}
+              fileRef={refs.social_share_image}
+              onChange={handleFileChange('social_share_image')}
+              hint="JPG or PNG · 1200×630 px recommended"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Product Placeholders */}
+      <div className="settings-section">
+        <p className="settings-section-title">🖼 Product Placeholder Images</p>
+        <p className="shint" style={{ marginBottom: 16 }}>Fallback images shown on product cards when a product has no photo uploaded. One per category. Requires Cloudinary.</p>
+        <div className="settings-grid">
+          <ImageUploadField
+            label="Skincare placeholder"
+            preview={previews.placeholder_img_skin}
+            fileRef={refs.placeholder_img_skin}
+            onChange={handleFileChange('placeholder_img_skin')}
+            hint="Shown for skincare products without images"
+          />
+          <ImageUploadField
+            label="Haircare placeholder"
+            preview={previews.placeholder_img_hair}
+            fileRef={refs.placeholder_img_hair}
+            onChange={handleFileChange('placeholder_img_hair')}
+            hint="Shown for haircare products without images"
+          />
+          <ImageUploadField
+            label="Perfumes placeholder"
+            preview={previews.placeholder_img_perfumes}
+            fileRef={refs.placeholder_img_perfumes}
+            onChange={handleFileChange('placeholder_img_perfumes')}
+            hint="Shown for perfume products without images"
+          />
         </div>
       </div>
 

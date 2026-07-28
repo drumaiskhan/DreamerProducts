@@ -321,12 +321,19 @@ app.put('/api/admin/products/:id', requireAdmin, upload.array('images', 10), asy
     const { rows: ex } = await pool.query('SELECT * FROM products WHERE id=$1', [req.params.id]);
     if (!ex[0]) return res.status(404).json({ error: 'Product not found' });
     const p = ex[0];
-    const { name, category, description, price, stock, featured } = req.body;
+    const { name, category, description, price, stock, featured, keep_images } = req.body;
     if (category && !['skin','hair','perfumes'].includes(category)) return res.status(400).json({ error: 'Invalid category' });
     let image_url = p.image_url, images = p.images || [];
     if (req.files && req.files.length > 0) {
+      // New files uploaded — replace images
       const urls = req.files.map(f => f.path);
       image_url = urls[0]; images = urls;
+    } else if (keep_images !== undefined) {
+      // Per-image delete: keep only the listed URLs
+      try {
+        images = JSON.parse(keep_images);
+        image_url = images[0] || null;
+      } catch {}
     }
     const { rows } = await pool.query(
       `UPDATE products SET name=$1,category=$2,description=$3,price=$4,stock=$5,image_url=$6,images=$7,featured=$8 WHERE id=$9 RETURNING *`,
@@ -345,6 +352,15 @@ app.delete('/api/admin/products/:id', requireAdmin, async (req, res) => {
     if (!rows[0]) return res.status(404).json({ error: 'Product not found' });
     await pool.query('DELETE FROM products WHERE id=$1', [req.params.id]);
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/products/bulk-delete', requireAdmin, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !ids.length) return res.status(400).json({ error: 'No IDs provided' });
+    await pool.query('DELETE FROM products WHERE id = ANY($1)', [ids]);
+    res.json({ success: true, deleted: ids.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -499,6 +515,23 @@ app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
     }
     await pool.query('DELETE FROM orders WHERE id = $1', [req.params.id]);
     res.json({ success: true, message: 'Order deleted successfully' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/orders/bulk-delete', requireAdmin, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !ids.length) return res.status(400).json({ error: 'No IDs provided' });
+    // Restore stock for non-cancelled orders
+    const { rows: orders } = await pool.query('SELECT * FROM orders WHERE id = ANY($1)', [ids]);
+    for (const order of orders) {
+      if (order.status !== 'Cancelled') {
+        const items = Array.isArray(order.items) ? order.items : JSON.parse(order.items || '[]');
+        for (const item of items) await pool.query('UPDATE products SET stock = stock + $1 WHERE id = $2', [item.quantity, item.id]);
+      }
+    }
+    await pool.query('DELETE FROM orders WHERE id = ANY($1)', [ids]);
+    res.json({ success: true, deleted: ids.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -876,23 +909,33 @@ app.get('/api/admin/settings', requireAdmin, async (req, res) => {
 
 app.put('/api/admin/settings', requireAdmin,
   upload.fields([
-    { name: 'hero_image',      maxCount: 1 },
-    { name: 'cat_img_skin',    maxCount: 1 },
-    { name: 'cat_img_hair',    maxCount: 1 },
-    { name: 'cat_img_perfumes',maxCount: 1 },
-    { name: 'brand_image',     maxCount: 1 },
-    { name: 'favicon_url',     maxCount: 1 },
+    { name: 'hero_image',            maxCount: 1 },
+    { name: 'cat_img_skin',          maxCount: 1 },
+    { name: 'cat_img_hair',          maxCount: 1 },
+    { name: 'cat_img_perfumes',      maxCount: 1 },
+    { name: 'brand_image',           maxCount: 1 },
+    { name: 'favicon_url',           maxCount: 1 },
+    { name: 'logo_url',              maxCount: 1 },
+    { name: 'social_share_image',    maxCount: 1 },
+    { name: 'placeholder_img_skin',      maxCount: 1 },
+    { name: 'placeholder_img_hair',      maxCount: 1 },
+    { name: 'placeholder_img_perfumes',  maxCount: 1 },
   ]),
   async (req, res) => {
   try {
     const updates = { ...req.body };
     const files = req.files || {};
-    if (files.hero_image?.[0])       updates.hero_image       = files.hero_image[0].path;
-    if (files.cat_img_skin?.[0])     updates.cat_img_skin     = files.cat_img_skin[0].path;
-    if (files.cat_img_hair?.[0])     updates.cat_img_hair     = files.cat_img_hair[0].path;
-    if (files.cat_img_perfumes?.[0]) updates.cat_img_perfumes = files.cat_img_perfumes[0].path;
-    if (files.brand_image?.[0])      updates.brand_image      = files.brand_image[0].path;
-    if (files.favicon_url?.[0])      updates.favicon_url      = files.favicon_url[0].path;
+    if (files.hero_image?.[0])               updates.hero_image               = files.hero_image[0].path;
+    if (files.cat_img_skin?.[0])             updates.cat_img_skin             = files.cat_img_skin[0].path;
+    if (files.cat_img_hair?.[0])             updates.cat_img_hair             = files.cat_img_hair[0].path;
+    if (files.cat_img_perfumes?.[0])         updates.cat_img_perfumes         = files.cat_img_perfumes[0].path;
+    if (files.brand_image?.[0])              updates.brand_image              = files.brand_image[0].path;
+    if (files.favicon_url?.[0])              updates.favicon_url              = files.favicon_url[0].path;
+    if (files.logo_url?.[0])                 updates.logo_url                 = files.logo_url[0].path;
+    if (files.social_share_image?.[0])       updates.social_share_image       = files.social_share_image[0].path;
+    if (files.placeholder_img_skin?.[0])     updates.placeholder_img_skin     = files.placeholder_img_skin[0].path;
+    if (files.placeholder_img_hair?.[0])     updates.placeholder_img_hair     = files.placeholder_img_hair[0].path;
+    if (files.placeholder_img_perfumes?.[0]) updates.placeholder_img_perfumes = files.placeholder_img_perfumes[0].path;
     for (const [key, value] of Object.entries(updates)) {
       await pool.query(
         `INSERT INTO site_settings (key, value) VALUES ($1, $2)
@@ -948,6 +991,15 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/users/bulk-delete', requireAdmin, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !ids.length) return res.status(400).json({ error: 'No IDs provided' });
+    await pool.query('DELETE FROM users WHERE id = ANY($1)', [ids]);
+    res.json({ success: true, deleted: ids.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

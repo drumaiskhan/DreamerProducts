@@ -155,7 +155,7 @@ export default function Home() {
         <div className="grid">
           {!loading && products.map((p, i) => (
             <div key={p.id} className="animate-in" style={{ animationDelay: `${i * 0.05}s` }}>
-              <ProductCard product={p} onEnquire={setEnquiryProduct} />
+              <ProductCard product={p} onEnquire={setEnquiryProduct} settings={settings} />
             </div>
           ))}
         </div>

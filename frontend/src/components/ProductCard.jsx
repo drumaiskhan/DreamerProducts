@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { api } from '../lib/api';
 
-const PLACEHOLDERS = {
+const DEFAULT_PLACEHOLDERS = {
   skin: '/product-skin.jpg',
   hair: '/product-hair.jpg',
   perfumes: '/product-perfume.jpg',
@@ -23,7 +23,7 @@ function StarRow({ rating, count }) {
   );
 }
 
-export default function ProductCard({ product, onEnquire }) {
+export default function ProductCard({ product, onEnquire, settings = {} }) {
   const navigate = useNavigate();
   const [imgIndex, setImgIndex] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -45,6 +45,11 @@ export default function ProductCard({ product, onEnquire }) {
     .map(u => u && u.startsWith('http') ? u : (u ? `${api.base}${u}` : null))
     .filter(Boolean);
 
+  const PLACEHOLDERS = {
+    skin:     settings.placeholder_img_skin     || DEFAULT_PLACEHOLDERS.skin,
+    hair:     settings.placeholder_img_hair     || DEFAULT_PLACEHOLDERS.hair,
+    perfumes: settings.placeholder_img_perfumes || DEFAULT_PLACEHOLDERS.perfumes,
+  };
   const placeholder = PLACEHOLDERS[product.category] || PLACEHOLDERS.skin;
   const currentSrc = images[imgIndex] ?? placeholder;
   const hasMultiple = images.length > 1;

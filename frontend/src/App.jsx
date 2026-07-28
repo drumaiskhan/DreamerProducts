@@ -71,6 +71,16 @@ function ThemeApplier() {
           link.href = s.favicon_url;
         }
 
+        // Social share / OG meta tags
+        if (s.social_share_image) {
+          ['og:image', 'twitter:image'].forEach(prop => {
+            const key = prop.startsWith('og:') ? 'property' : 'name';
+            let el = document.querySelector(`meta[${key}="${prop}"]`);
+            if (!el) { el = document.createElement('meta'); el.setAttribute(key, prop); document.head.appendChild(el); }
+            el.setAttribute('content', s.social_share_image);
+          });
+        }
+
         // Colours → CSS custom properties
         const colorMap = {
           theme_bg:          ['--bg', '--cream', '--warm-white'],
@@ -195,6 +205,8 @@ export default function App() {
               <Route path="/signup" element={<Signup />} />
 
               <Route path="/checkout" element={<Checkout />} />
+
+              <Route path="/cart-popup" element={<CartPopup />} />
 
               <Route path="/contact" element={<Contact />} />
               <Route path="/my-orders" element={<MyOrders />} />

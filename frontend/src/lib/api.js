@@ -264,4 +264,23 @@ export const api = {
   // ── Admin analytics ──
   getAnalytics: (days) =>
     fetch(`${API_BASE}/api/admin/analytics${days ? `?days=${days}` : ''}`, { headers: adminHeaders() }).then(handle),
+
+  // ── Bulk delete ──
+  bulkDeleteProducts: (ids) =>
+    fetch(`${API_BASE}/api/admin/products/bulk-delete`, {
+      method: 'POST', headers: { ...json(), ...adminHeaders() },
+      body: JSON.stringify({ ids })
+    }).then(handle),
+
+  bulkDeleteOrders: (ids) =>
+    fetch(`${API_BASE}/api/admin/orders/bulk-delete`, {
+      method: 'POST', headers: { ...json(), ...adminHeaders() },
+      body: JSON.stringify({ ids })
+    }).then(handle),
+
+  bulkDeleteUsers: (ids) =>
+    fetch(`${API_BASE}/api/admin/users/bulk-delete`, {
+      method: 'POST', headers: { ...json(), ...adminHeaders() },
+      body: JSON.stringify({ ids })
+    }).then(handle),
 };

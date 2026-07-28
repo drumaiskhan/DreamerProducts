@@ -11,10 +11,13 @@ const FILTERS = [
   { key: 'perfumes', label: 'Perfumes' },
 ];
 
-export default function Navbar({ active, onFilter, onCartOpen }) {
+export default function Navbar({ active, onFilter }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bannerText, setBannerText] = useState('Free delivery on orders over Rs 3,000 · Dermatologist-reviewed formulas');
+  const [popupBlocked, setPopupBlocked] = useState(false);
+  const [logoUrl, setLogoUrl] = useState('');
+  const [useImageLogo, setUseImageLogo] = useState(false);
   const { count } = useCart();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -22,9 +25,9 @@ export default function Navbar({ active, onFilter, onCartOpen }) {
   useEffect(() => {
     api.getSettings()
       .then(s => {
-        if (s.announcement_banner) {
-          setBannerText(s.announcement_banner);
-        }
+        if (s.announcement_banner) setBannerText(s.announcement_banner);
+        if (s.logo_url) setLogoUrl(s.logo_url);
+        if (s.use_image_logo === 'true') setUseImageLogo(true);
       })
       .catch(() => {});
   }, []);
@@ -37,6 +40,13 @@ export default function Navbar({ active, onFilter, onCartOpen }) {
 
   function handleLogout() { logout(); navigate('/'); }
 
+  function openCartPopup() {
+    const w = window.open('/cart-popup', 'dp_cart', 'width=400,height=620,resizable=yes');
+    if (!w || w.closed || typeof w.closed === 'undefined') {
+      setPopupBlocked(true);
+    }
+  }
+
   return (
     <header className={`nav ${scrolled ? 'nav-scrolled' : ''}`}>
       {/* Top announcement strip */}
@@ -46,8 +56,10 @@ export default function Navbar({ active, onFilter, onCartOpen }) {
 
       <div className="container nav-inner">
         <Link to="/" className="nav-logo">
-          <span className="nav-logo-mark">Dr.</span>
-          <span className="nav-logo-name display">Dreamer</span>
+          {useImageLogo && logoUrl
+            ? <img src={logoUrl} alt="Dreamer" className="nav-logo-img" />
+            : (<><span className="nav-logo-mark">Dr.</span><span className="nav-logo-name display">Dreamer</span></>)
+          }
         </Link>
 
         {/* Desktop filters */}
@@ -82,16 +94,23 @@ export default function Navbar({ active, onFilter, onCartOpen }) {
               <Link to="/signup" className="btn btn-outline nav-signup">Sign up</Link>
             </div>
           )}
-          {onCartOpen && (
-            <button className="nav-cart" onClick={onCartOpen} aria-label={`Cart (${count} items)`}>
-              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
-                <path d="M6 2 3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 01-8 0"/>
-              </svg>
-              {count > 0 && <span className="nav-cart-badge">{count}</span>}
-            </button>
-          )}
+          <div style={{ position: 'relative' }}>
+              <button className="nav-cart" onClick={openCartPopup} aria-label={`Cart (${count} items)`}>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+                  <path d="M6 2 3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <path d="M16 10a4 4 0 01-8 0"/>
+                </svg>
+                {count > 0 && <span className="nav-cart-badge">{count}</span>}
+              </button>
+              {popupBlocked && (
+                <div className="nav-popup-blocked">
+                  <p>Popups are blocked.</p>
+                  <a href="/cart-popup" className="nav-popup-link">Open cart →</a>
+                  <button onClick={() => setPopupBlocked(false)} className="nav-popup-dismiss">✕</button>
+                </div>
+              )}
+            </div>
           <button className="nav-hamburger" onClick={() => setMenuOpen(o => !o)} aria-label="Menu">
             <span className={menuOpen ? 'open' : ''}/><span className={menuOpen ? 'open' : ''}/><span className={menuOpen ? 'open' : ''}/>
           </button>
@@ -155,6 +174,7 @@ export default function Navbar({ active, onFilter, onCartOpen }) {
           transition: opacity .18s;
         }
         .nav-logo:hover { opacity: .75; }
+        .nav-logo-img { height: 36px; width: auto; object-fit: contain; display: block; }
         .nav-logo-mark {
           font-family: 'DM Sans', sans-serif;
           font-size: 13px; font-weight: 600;
@@ -232,6 +252,17 @@ export default function Navbar({ active, onFilter, onCartOpen }) {
         }
         .nav-mob-link:hover, .nav-mob-link.active { color: var(--forest); background: var(--sage-pale); }
         .nav-mob-divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+        .nav-popup-blocked {
+          position: absolute; top: calc(100% + 8px); right: 0;
+          background: #fff; border: 1px solid var(--border); border-radius: 10px;
+          padding: 10px 14px; white-space: nowrap; z-index: 100;
+          box-shadow: 0 4px 16px rgba(0,0,0,.12);
+          display: flex; align-items: center; gap: 10px;
+        }
+        .nav-popup-blocked p { font-size: 12px; color: var(--ink-soft); margin: 0; }
+        .nav-popup-link { font-size: 12px; font-weight: 600; color: var(--forest); text-decoration: none; }
+        .nav-popup-dismiss { background: none; border: none; font-size: 14px; cursor: pointer; color: var(--ink-soft); padding: 0 2px; }
 
         @media (max-width: 768px) {
           .nav-strip { display: none; }
