@@ -1,0 +1,69 @@
+# Fix: Cart Popup + Remaining Image Uploads + COD Records + Bulk/Image Delete
+
+Cart popup and image uploads were requested before and NOT implemented
+yet. Add them now, plus COD order tracking and delete improvements. Do
+not touch checkout logic, theme, coupons, or analytics — those work fine.
+
+## 1. Cart → Popup Window (not a drawer)
+- `CartDrawer.jsx` is still a sliding drawer — replace this behavior.
+- Create `pages/CartPopup.jsx`: standalone page, no Navbar/footer, same
+  cart content (items, qty controls, subtotal, delivery, total, Checkout
+  button) but compact/dense — fits a small window.
+- Add route `/cart-popup` in `App.jsx`.
+- Cart already persists to `localStorage` key `dp_cart` via
+  `CartContext.jsx` — popup reads that directly, no data passing needed.
+- In `Navbar.jsx`, change the cart button to call:
+  `window.open('/cart-popup', 'dp_cart', 'width=400,height=620,resizable=yes')`
+  directly in the click handler (not after any await/async).
+- Remove `cartOpen` state + `<CartDrawer>` usage from `Home.jsx` and
+  `ProductDetails.jsx`. Delete `CartDrawer.jsx` once replaced.
+- Popup's Checkout button navigates the popup itself to `/checkout`.
+- If popup is blocked, show inline fallback: "Please allow popups" +
+  a normal `<Link to="/cart-popup">`.
+- Add a `storage` event listener in `CartContext.jsx` so the main
+  window's cart badge count updates live if items change in the popup.
+
+## 2. Remaining Admin Image Uploads
+Follow the exact same pattern already used for Hero/Category/Brand/
+Favicon images (`ImageUploadField` + `site_settings` key/value, merge on
+save). Add these to Settings:
+
+- **Product placeholders**: 3 uploads (skin/hair/perfumes) — keys
+  `placeholder_img_skin`, `placeholder_img_hair`, `placeholder_img_perfumes`.
+  Used as fallback in `ProductCard.jsx` / `ProductDetails.jsx`.
+- **Logo**: toggle "Use image logo" + upload (`logo_url`). When on,
+  `Navbar.jsx` shows the image instead of the current text logo.
+- **Social share image**: upload (`social_share_image`), injected as
+  `og:image` / `twitter:image` meta tags (same pattern as the existing
+  favicon-updater in `App.jsx`).
+
+Every new field must default to the current hardcoded look if nothing is
+uploaded.
+
+## 3. COD Order Records in Admin
+- Show `payment_status` (pending/paid) badge on each order row.
+- Button per order: "Mark Cash Received" → calls existing
+  `PUT /api/admin/orders/:id/payment` to set status to `paid`.
+- Filter orders by payment status (all/pending/paid).
+- Summary counts at top of Orders tab: total orders, pending cash,
+  cash collected.
+
+## 4. Bulk Delete + Image-Level Delete
+Individual delete buttons already exist and work on Products, Orders,
+Reviews, Users, and Coupons — don't rebuild those. Add:
+
+- **Bulk delete**: checkbox per row + "Select All" + a "Delete Selected"
+  button on the Products, Orders, Reviews, and Users tabs (Reviews
+  already has a bulk endpoint at `/api/admin/reviews/bulk` — reuse or
+  extend it; add equivalent bulk-delete backend routes for the others
+  if missing). Always confirm before bulk deleting.
+- **Per-image delete**: in the Product form and Review submission (both
+  support multiple images), let admin remove one uploaded image at a
+  time instead of only deleting the whole product/review.
+
+## Constraints
+- Don't modify checkout logic, theme, coupons, or analytics.
+- Every delete action (single or bulk) needs a confirm dialog.
+- Test: cart popup opens and syncs with main window; checkout works from
+  it. New images upload/show/fallback correctly. Admin can mark COD
+  payments and bulk-delete rows across all tabs with no console errors.

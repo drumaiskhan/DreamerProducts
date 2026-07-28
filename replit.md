@@ -1,71 +1,54 @@
 # Dreamer Products
 
-A clinical-luxe skin & hair care storefront with a "Dr. Dreamer" brand identity.
+A skincare, haircare & perfume storefront with a React frontend and Express + PostgreSQL backend.
 
 ## Stack
 
-- **Frontend**: React + Vite (port 5000)
-- **Backend**: Express + PostgreSQL API (port 4000)
-- **Images**: Cloudinary (for product/hero images uploaded via admin)
-- **Auth**: JWT (admin) + JWT (customers)
+- **Frontend**: React 19 + Vite (port 5000)
+- **Backend**: Express + PostgreSQL (port 4000), auto-migrates tables on start
+- **Images**: Cloudinary (optional — app runs without it, uploads disabled)
 
-## Running locally
+## Running on Replit
 
-Both workflows are already configured:
+Two workflows are configured and run automatically:
 
-- **Start application** → `cd frontend && npm run dev` (port 5000)
-- **Backend API** → `cd backend && npm start` (port 4000)
+| Workflow | Command | Port |
+|---|---|---|
+| Start application | `cd frontend && npm install && npm run dev` | 5000 |
+| Backend API | `cd backend && npm install --legacy-peer-deps && npm start` | 4000 |
 
-Frontend proxies `/api` to `http://localhost:4000` via Vite config.
+The Vite dev server proxies `/api/*` → `http://localhost:4000`, so no `VITE_API_URL` is needed in development.
 
-## Environment variables needed
+## Environment variables / secrets
 
-### Backend (`backend/.env`)
-| Variable | Description |
-|---|---|
-| `PORT` | API port (default 4000) |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | Long random string for signing tokens |
-| `ADMIN_EMAIL` | Admin login email |
-| `ADMIN_PASSWORD` | Admin login password |
-| `CLOUDINARY_CLOUD_NAME` | From your Cloudinary dashboard |
-| `CLOUDINARY_API_KEY` | From your Cloudinary dashboard |
-| `CLOUDINARY_API_SECRET` | From your Cloudinary dashboard |
-| `FRONTEND_URL` | Deployed frontend URL (for CORS) |
-
-### Frontend (`frontend/.env`)
-| Variable | Description |
-|---|---|
-| `VITE_API_URL` | Backend URL (default: `http://localhost:4000`) |
+| Key | Where | Notes |
+|---|---|---|
+| `DATABASE_URL` | Auto-managed by Replit | PostgreSQL — always available |
+| `JWT_SECRET` | Replit Secret | Signs admin + user JWT tokens |
+| `ADMIN_EMAIL` | Replit Secret | Admin login email |
+| `ADMIN_PASSWORD` | Replit Secret | Admin login password |
+| `CLOUDINARY_CLOUD_NAME` | Replit Secret (optional) | Required for image uploads |
+| `CLOUDINARY_API_KEY` | Replit Secret (optional) | Required for image uploads |
+| `CLOUDINARY_API_SECRET` | Replit Secret (optional) | Required for image uploads |
+| `FRONTEND_URL` | Optional env var | CORS origin — defaults to `*` |
 
 ## Admin panel
 
-- URL: `/admin/login`
-- Default email: `admin@drdreamer.com`
-- Default password: `ChangeMe123!` ← **change this before going live**
+Visit `/admin/login` and sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
 
-From the admin panel you can:
-- Add/edit/remove products (with image uploads)
-- Manage orders and update their status
-- Approve/reply to customer reviews
-- Manage registered customers
-- Change hero image, category images, trust bar text, WhatsApp/email contact
+Features:
+- **Products** — add/edit/delete with multi-image upload, bulk delete
+- **Orders** — status management, COD payment tracking ("Mark Cash Received"), bulk delete
+- **Reviews** — approve/pin/feature/reply, bulk delete
+- **Users** — view/delete customer accounts
+- **Coupons** — create percent/fixed discount codes
+- **Settings** — theme colours, fonts, hero/category/brand/favicon/logo/placeholder image uploads, announcement banner, delivery charge, social share image
 
-## AI-generated images
+## Cart
 
-The following images are pre-generated and live in `frontend/public/`:
-- `hero-image.jpg` — hero section
-- `cat-skin.jpg`, `cat-hair.jpg`, `cat-perfumes.jpg` — category cards
-- `brand-story.jpg` — brand story section
-- `product-skin.jpg`, `product-hair.jpg`, `product-perfume.jpg` — product card placeholders (shown when no product image is uploaded)
-
-All of these can be replaced from the admin panel → Settings tab.
-
-## Design system
-
-Clinical-luxe "Dr. Dreamer" aesthetic — deep forest green (`#1B3A2D`), sage (`#7A9E8E`), warm white, gold accents. Fonts: Cormorant Garamond (display) + DM Sans (body).
+The cart icon opens a popup window (`/cart-popup`) showing items, qty controls, and checkout. If the browser blocks popups, a fallback link appears inline. Cart state syncs between the main window and the popup via `localStorage` + the `storage` event.
 
 ## User preferences
 
-- Brand name: **Dreamer Products** / **Dr. Dreamer**
-- Visual direction: clinical-luxe, dermatologist aesthetic, clean and professional
+- Keep the existing project structure (monorepo: `frontend/` + `backend/`)
+- Do not restructure to pnpm workspaces unless explicitly asked
